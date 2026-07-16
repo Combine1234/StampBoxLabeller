@@ -11,4 +11,5 @@ tmp/
 backups/
 .env
 .env.*
+.env.local
 .vercel/
