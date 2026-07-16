@@ -1,0 +1,2 @@
+"""Shopee label overlay MVP."""
+

@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StampBOX</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace">
+        <header class="topbar">
+          <div class="brand">
+            <div class="brand-mark">PDF</div>
+            <div>
+              <h1>StampBOX</h1>
+              <p>อัปโหลดใบปะหน้า แล้วรับไฟล์ PDF พร้อมส่งลูกค้า</p>
+            </div>
+          </div>
+          <div class="status-pill" id="systemStatus">พร้อมใช้งาน</div>
+        </header>
+
+        <section class="hero-grid">
+          <div class="upload-panel">
+            <label class="dropzone" id="dropzone" for="pdfInput">
+              <input id="pdfInput" type="file" accept="application/pdf,.pdf" />
+              <span class="file-icon">PDF</span>
+              <span class="drop-title">วางไฟล์ PDF ที่นี่</span>
+              <span class="drop-subtitle">หรือคลิกเพื่อเลือกไฟล์จากเครื่อง</span>
+              <span class="selected-file" id="selectedFile"></span>
+            </label>
+
+            <div class="actions">
+              <button id="startButton" class="primary-button" disabled>เริ่มทำไฟล์</button>
+              <button id="resetButton" class="ghost-button" disabled>ล้างไฟล์</button>
+            </div>
+
+            <div class="progress-wrap">
+              <div class="progress-head">
+                <span id="phaseText">รอไฟล์ PDF</span>
+                <strong id="percentText">0%</strong>
+              </div>
+              <div class="progress-track">
+                <div class="progress-bar" id="progressBar"></div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="result-panel">
+            <div class="result-empty" id="emptyState">
+              <div class="paper-preview"></div>
+              <p>ผลลัพธ์จะแสดงตรงนี้</p>
+            </div>
+
+            <div class="result-ready hidden" id="resultReady">
+              <div class="scoreboard">
+                <div><span>สำเร็จ</span><strong id="writtenCount">0</strong></div>
+                <div><span>ทั้งหมด</span><strong id="totalCount">0</strong></div>
+                <div><span>ต้องเช็ก</span><strong id="failedCount">0</strong></div>
+              </div>
+              <a class="download-button" id="downloadButton" href="#" download>บันทึก PDF พร้อมส่งลูกค้า</a>
+            </div>
+          </aside>
+        </section>
+
+        <section class="preview-section hidden" id="previewSection">
+          <div class="preview-head">
+            <h2>ตัวอย่างไฟล์ผลลัพธ์</h2>
+            <span id="savedPath"></span>
+          </div>
+          <iframe id="previewFrame" title="PDF preview"></iframe>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

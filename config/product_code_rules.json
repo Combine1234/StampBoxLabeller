@@ -1,0 +1,25 @@
+{
+  "rules": [
+    { "code": "LECTURE", "keywords": ["เลคเชอร์", "lecture"] },
+    { "code": "CHAIR", "keywords": ["เก้าอี้"] },
+    { "code": "DRAWER", "keywords": ["ลิ้นชัก", "ตู้"] },
+    { "code": "RACK", "keywords": ["ราวเดี่ยว", "ราวตาก"] },
+    { "code": "IRON", "keywords": ["โต๊ะรีด"] },
+    { "code": "TABLE71", "keywords": ["71x71"] },
+    { "code": "JTABLE", "keywords": ["โต๊ะญี่ปุ่น", "75x75"] },
+    { "code": "BED", "keywords": ["เปล"] }
+  ],
+  "variant_tokens": [
+    { "token": "BLK", "keywords": ["ดำ", "black"] },
+    { "token": "BLU", "keywords": ["ฟ้า"] },
+    { "token": "NAVY", "keywords": ["น้ำเงิน", "navy"] },
+    { "token": "GRN", "keywords": ["เขียว"] },
+    { "token": "YEL", "keywords": ["เหลือง"] },
+    { "token": "MAPLE", "keywords": ["เมเปิ้ล"] },
+    { "token": "30IN", "keywords": ["30นิ้ว"] },
+    { "token": "3DR", "keywords": ["3ชั้น"] },
+    { "token": "4DR", "keywords": ["4ชั้น"] },
+    { "token": "5DR", "keywords": ["5ชั้น"] }
+  ]
+}
+

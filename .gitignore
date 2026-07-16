@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.streamlit/
+input/*
+!input/.gitkeep
+output/*
+!output/.gitkeep
+tmp/
+backups/
+.env
+.env.*
+.vercel/

@@ -1,0 +1,35 @@
+{
+  "rows": "auto",
+  "columns": "auto",
+  "label": {
+    "product_area": {
+      "x0": 0.06,
+      "y0": 0.62,
+      "x1": 0.94,
+      "y1": 0.90
+    },
+    "footer_top_ratio": 0.91
+  },
+  "text": {
+    "font_size_max": 22.0,
+    "font_size_min": 10.0,
+    "font_size_step": 1.0,
+    "line_height": 1.2,
+    "max_lines": 6,
+    "align": "center",
+    "color": "#0057D9",
+    "underline_color": "#FF0000",
+    "underline_quantity_gt": 1
+  },
+  "safety": {
+    "margin": 4.0,
+    "min_overlay_height": 24.0,
+    "allow_product_area_fallback": true,
+    "fallback_area": {
+      "x0": 0.06,
+      "y0": 0.66,
+      "x1": 0.94,
+      "y1": 0.88
+    }
+  }
+}
