@@ -19,7 +19,7 @@ from src.product_mapping import DEFAULT_MAPPING_URL
 
 LOCKED_MAPPING_URL = DEFAULT_MAPPING_URL
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=None)
 
 
 def _safe_output_name(filename: str) -> str:
