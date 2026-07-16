@@ -18,6 +18,7 @@ from src.pdf_product_extractor import build_rows_from_pdf
 from src.product_mapping import DEFAULT_MAPPING_URL
 
 LOCKED_MAPPING_URL = DEFAULT_MAPPING_URL
+VERCEL_FUNCTION_UPLOAD_LIMIT_BYTES = int(4.5 * 1024 * 1024)
 
 app = Flask(__name__, static_folder=None)
 
@@ -53,6 +54,10 @@ def health():
 
 @app.post("/api/process")
 def process_pdf():
+    content_length = request.content_length
+    if content_length and content_length > VERCEL_FUNCTION_UPLOAD_LIMIT_BYTES:
+        return jsonify({"error": "ไฟล์ใหญ่เกินลิมิต Vercel 4.5MB กรุณาใช้ไฟล์เล็กลง หรือใช้ Render/Railway สำหรับไฟล์ใหญ่"}), 413
+
     uploaded = request.files.get("pdf")
     if uploaded is None or not uploaded.filename:
         return jsonify({"error": "ไม่พบไฟล์ PDF"}), 400

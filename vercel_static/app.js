@@ -20,6 +20,7 @@ const savedPath = document.querySelector("#savedPath");
 let currentFile = null;
 let progressTimer = null;
 let currentPdfUrl = "";
+const VERCEL_FUNCTION_UPLOAD_LIMIT_BYTES = 4.2 * 1024 * 1024;
 
 function setProgress(percent, phase) {
   const safePercent = Math.max(0, Math.min(100, Math.round(percent || 0)));
@@ -33,13 +34,28 @@ function setStatus(text, state = "") {
   systemStatus.className = `status-pill ${state}`.trim();
 }
 
+function isTooLargeForVercel(file) {
+  return file.size > VERCEL_FUNCTION_UPLOAD_LIMIT_BYTES;
+}
+
+function showVercelLimitError(file) {
+  const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+  setProgress(100, `ไฟล์ ${sizeMb}MB ใหญ่เกินลิมิต Vercel ประมาณ 4.5MB`);
+  setStatus("ไฟล์ใหญ่เกิน", "error");
+}
+
 function setFile(file) {
   if (!file) return;
   currentFile = file;
   selectedFile.textContent = file.name;
-  startButton.disabled = false;
   resetButton.disabled = false;
   hideResult();
+  if (isTooLargeForVercel(file)) {
+    startButton.disabled = true;
+    showVercelLimitError(file);
+    return;
+  }
+  startButton.disabled = false;
   setProgress(0, "พร้อมเริ่มทำไฟล์");
   setStatus("พร้อมทำไฟล์");
 }
@@ -97,6 +113,10 @@ function filenameFromResponse(response) {
 
 async function startJob() {
   if (!currentFile) return;
+  if (isTooLargeForVercel(currentFile)) {
+    showVercelLimitError(currentFile);
+    return;
+  }
 
   hideResult();
   startButton.disabled = true;
