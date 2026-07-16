@@ -117,7 +117,7 @@ async function startJob() {
     if (!response.ok) {
       let message = "ทำไฟล์ไม่สำเร็จ";
       try {
-        const payload = await response.json();
+        const payload = await response.clone().json();
         message = payload.error || message;
       } catch (_) {
         message = await response.text();
