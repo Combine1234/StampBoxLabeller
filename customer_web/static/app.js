@@ -86,12 +86,22 @@ function stopPolling() {
   }
 }
 
+async function readJsonOrThrow(response, fallbackMessage) {
+  let payload = {};
+  try {
+    payload = await response.json();
+  } catch (error) {
+    payload = {};
+  }
+  if (!response.ok) {
+    throw new Error(payload.error || fallbackMessage);
+  }
+  return payload;
+}
+
 async function pollJob(jobId) {
   const response = await fetch(`/api/jobs/${jobId}`);
-  if (!response.ok) {
-    throw new Error("อ่านสถานะไม่สำเร็จ");
-  }
-  const job = await response.json();
+  const job = await readJsonOrThrow(response, "อ่านสถานะไม่สำเร็จ");
   setProgress(job.percent, job.phase);
 
   if (job.status === "done") {
@@ -130,10 +140,7 @@ async function startJob() {
       method: "POST",
       body: formData,
     });
-    const payload = await response.json();
-    if (!response.ok) {
-      throw new Error(payload.error || "เริ่มงานไม่สำเร็จ");
-    }
+    const payload = await readJsonOrThrow(response, "เริ่มงานไม่สำเร็จ");
 
     pollTimer = window.setInterval(() => {
       pollJob(payload.job_id).catch((error) => {

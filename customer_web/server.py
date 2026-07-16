@@ -30,6 +30,7 @@ from src.product_mapping import DEFAULT_MAPPING_URL
 from src.report import report_to_excel_bytes
 
 LOCKED_MAPPING_URL = DEFAULT_MAPPING_URL
+MAX_UPLOAD_BYTES = int(os.environ.get("STAMPBOX_MAX_UPLOAD_MB", "35")) * 1024 * 1024
 
 
 @dataclass
@@ -47,6 +48,7 @@ class Job:
     report_xlsx: Path | None = None
     preview_png: Path | None = None
     created_at: float = field(default_factory=time.time)
+    updated_at: float = field(default_factory=time.time)
 
 
 JOBS: dict[str, Job] = {}
@@ -70,6 +72,13 @@ def _set_job(job_id: str, **updates) -> None:
         job = JOBS[job_id]
         for key, value in updates.items():
             setattr(job, key, value)
+        job.updated_at = time.time()
+
+
+def _log_job(job_id: str, message: str, **extra) -> None:
+    details = " ".join(f"{key}={value}" for key, value in extra.items())
+    suffix = f" {details}" if details else ""
+    print(f"[stampbox:{job_id}] {message}{suffix}", flush=True)
 
 
 def _job_payload(job: Job) -> dict:
@@ -86,6 +95,7 @@ def _job_payload(job: Job) -> dict:
         "report_url": f"/api/jobs/{job.id}/report" if job.report_xlsx else "",
         "preview_url": f"/api/jobs/{job.id}/preview" if job.preview_png else "",
         "file_name": job.output_pdf.name if job.output_pdf else "",
+        "updated_at": job.updated_at,
     }
 
 
@@ -102,10 +112,13 @@ def _process_job(job_id: str, input_pdf: Path) -> None:
         original_name = job.original_name
 
     try:
+        started_at = time.perf_counter()
+        _log_job(job_id, "started", file=original_name, size=input_pdf.stat().st_size)
         _set_job(job_id, status="running", percent=8, phase="รับไฟล์แล้ว")
 
         _set_job(job_id, percent=22, phase="อ่านรายการสินค้า")
         rows = build_rows_from_pdf(input_pdf, mapping_source=LOCKED_MAPPING_URL)
+        _log_job(job_id, "pdf rows extracted", rows=len(rows), seconds=round(time.perf_counter() - started_at, 2))
 
         _set_job(job_id, percent=48, phase="จับคู่โค้ดสินค้าจาก Sheet")
         font_path = locate_font()
@@ -127,10 +140,19 @@ def _process_job(job_id: str, input_pdf: Path) -> None:
             font_path=font_path,
         )
         written, failed, total = _status_counts(report_rows)
+        _log_job(
+            job_id,
+            "overlay written",
+            written=written,
+            failed=failed,
+            total=total,
+            seconds=round(time.perf_counter() - started_at, 2),
+        )
 
         _set_job(job_id, percent=88, phase="เตรียมไฟล์บันทึก")
         report_xlsx.write_bytes(report_to_excel_bytes(report_rows))
         preview_png.write_bytes(render_page(output_pdf, page_index=0, zoom=1.7))
+        _log_job(job_id, "finished", seconds=round(time.perf_counter() - started_at, 2))
 
         _set_job(
             job_id,
@@ -146,12 +168,13 @@ def _process_job(job_id: str, input_pdf: Path) -> None:
         )
     except Exception as exc:
         traceback.print_exc()
+        _log_job(job_id, "failed", error=repr(exc))
         _set_job(
             job_id,
             status="error",
             percent=100,
             phase="ทำงานไม่สำเร็จ",
-            error=str(exc),
+            error=f"{type(exc).__name__}: {exc}",
         )
 
 
@@ -214,6 +237,11 @@ class CustomerWebHandler(BaseHTTPRequestHandler):
         if "multipart/form-data" not in content_type:
             return self._send_error_json("ต้องอัปโหลดไฟล์ PDF")
 
+        content_length = int(self.headers.get("Content-Length") or 0)
+        if content_length > MAX_UPLOAD_BYTES:
+            max_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+            return self._send_error_json(f"ไฟล์ใหญ่เกิน {max_mb}MB กรุณาแบ่ง PDF เป็นชุดเล็กลง", status=413)
+
         form = cgi.FieldStorage(
             fp=self.rfile,
             headers=self.headers,
@@ -234,6 +262,8 @@ class CustomerWebHandler(BaseHTTPRequestHandler):
         temp_dir = Path(tempfile.mkdtemp(prefix=f"shopee_job_{job_id}_"))
         input_pdf = temp_dir / "input.pdf"
         input_pdf.write_bytes(file_item.file.read())
+        if input_pdf.stat().st_size == 0:
+            return self._send_error_json("ไฟล์ PDF ว่างหรืออัปโหลดไม่ครบ")
 
         with JOBS_LOCK:
             JOBS[job_id] = Job(id=job_id, original_name=filename, percent=3, phase="กำลังอัปโหลด")
@@ -254,7 +284,10 @@ class CustomerWebHandler(BaseHTTPRequestHandler):
             payload = _job_payload(job) if job else None
 
         if job is None or payload is None:
-            return self._send_error_json("ไม่พบงานนี้", status=404)
+            return self._send_error_json(
+                "ไม่พบงานนี้แล้ว อาจเป็นเพราะ Render เพิ่งรีสตาร์ทระหว่างทำไฟล์ กรุณาอัปโหลดใหม่อีกครั้ง",
+                status=404,
+            )
         if action == "status":
             return self._send_json(payload)
         if action == "download":
