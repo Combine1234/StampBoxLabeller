@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -65,6 +65,16 @@ def _safe_output_stem(filename: str) -> str:
     stem = Path(filename).stem.strip() or "shopee_labels"
     cleaned = "".join(char if char.isalnum() or char in (" ", "-", "_") else "_" for char in stem).strip()
     return cleaned or "shopee_labels"
+
+
+def _download_content_disposition(filename: str) -> str:
+    ascii_name = "".join(
+        char if char.isascii() and (char.isalnum() or char in (" ", "-", "_", ".")) else "_"
+        for char in filename
+    ).strip(" .")
+    ascii_name = ascii_name or "stampbox.pdf"
+    utf8_name = quote(filename, safe="")
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}"
 
 
 def _set_job(job_id: str, **updates) -> None:
@@ -305,7 +315,7 @@ class CustomerWebHandler(BaseHTTPRequestHandler):
     def _send_file(self, path: Path | None, content_type: str, filename: str) -> None:
         if path is None or not path.exists():
             return self._send_error_json("ไฟล์ยังไม่พร้อม", status=404)
-        headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+        headers = {"Content-Disposition": _download_content_disposition(filename)}
         if content_type == "image/png":
             headers = {}
         self._send_bytes(path.read_bytes(), content_type, headers=headers)

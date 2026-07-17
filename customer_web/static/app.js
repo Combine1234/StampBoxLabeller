@@ -79,6 +79,17 @@ function showResult(job) {
   previewSection.classList.remove("hidden");
 }
 
+function triggerDownload(job) {
+  if (!job.download_url) return;
+  const link = document.createElement("a");
+  link.href = job.download_url;
+  link.download = job.file_name || "stampbox_ready.pdf";
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 function stopPolling() {
   if (pollTimer) {
     window.clearInterval(pollTimer);
@@ -110,6 +121,7 @@ async function pollJob(jobId) {
     startButton.innerHTML = '<span class="button-icon" aria-hidden="true">↗</span>ทำอีกครั้ง';
     setStatus("เสร็จแล้ว", "done");
     showResult(job);
+    triggerDownload(job);
     return;
   }
 

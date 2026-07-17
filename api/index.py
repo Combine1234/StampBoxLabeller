@@ -4,6 +4,7 @@ import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from flask import Flask, Response, jsonify, request, send_from_directory
 
@@ -28,6 +29,16 @@ def _safe_output_name(filename: str) -> str:
     cleaned = "".join(char if char.isalnum() or char in (" ", "-", "_") else "_" for char in stem).strip()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return f"{cleaned or 'shopee_labels'}_stampbox_{timestamp}.pdf"
+
+
+def _download_content_disposition(filename: str) -> str:
+    ascii_name = "".join(
+        char if char.isascii() and (char.isalnum() or char in (" ", "-", "_", ".")) else "_"
+        for char in filename
+    ).strip(" .")
+    ascii_name = ascii_name or "stampbox.pdf"
+    utf8_name = quote(filename, safe="")
+    return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}"
 
 
 def _status_counts(report_rows: list[dict]) -> tuple[int, int, int]:
@@ -84,7 +95,7 @@ def process_pdf():
         written, failed, total = _status_counts(report_rows)
 
         response = Response(output_pdf.read_bytes(), mimetype="application/pdf")
-        response.headers["Content-Disposition"] = f'attachment; filename="{_safe_output_name(uploaded.filename)}"'
+        response.headers["Content-Disposition"] = _download_content_disposition(_safe_output_name(uploaded.filename))
         response.headers["X-Stampbox-Written"] = str(written)
         response.headers["X-Stampbox-Failed"] = str(failed)
         response.headers["X-Stampbox-Total"] = str(total)
