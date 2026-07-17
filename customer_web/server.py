@@ -4,6 +4,7 @@ import cgi
 import json
 import mimetypes
 import os
+import shutil
 import sys
 import tempfile
 import threading
@@ -18,7 +19,6 @@ from urllib.parse import quote, unquote, urlparse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
-OUTPUT_DIR = PROJECT_ROOT / "output" / "customer_web"
 
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -31,6 +31,8 @@ from src.report import report_to_excel_bytes
 
 LOCKED_MAPPING_URL = DEFAULT_MAPPING_URL
 MAX_UPLOAD_BYTES = int(os.environ.get("STAMPBOX_MAX_UPLOAD_MB", "35")) * 1024 * 1024
+JOB_RETENTION_SECONDS = int(os.environ.get("STAMPBOX_JOB_RETENTION_SECONDS", "900"))
+ERROR_RETENTION_SECONDS = int(os.environ.get("STAMPBOX_ERROR_RETENTION_SECONDS", "180"))
 
 
 @dataclass
@@ -47,6 +49,7 @@ class Job:
     output_pdf: Path | None = None
     report_xlsx: Path | None = None
     preview_png: Path | None = None
+    temp_dir: Path | None = None
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
 
@@ -89,6 +92,23 @@ def _log_job(job_id: str, message: str, **extra) -> None:
     details = " ".join(f"{key}={value}" for key, value in extra.items())
     suffix = f" {details}" if details else ""
     print(f"[stampbox:{job_id}] {message}{suffix}", flush=True)
+
+
+def _schedule_job_cleanup(job_id: str, delay_seconds: int) -> None:
+    timer = threading.Timer(delay_seconds, _cleanup_job, args=(job_id,))
+    timer.daemon = True
+    timer.start()
+
+
+def _cleanup_job(job_id: str) -> None:
+    with JOBS_LOCK:
+        job = JOBS.pop(job_id, None)
+    if not job:
+        return
+    temp_dir = job.temp_dir
+    if temp_dir and temp_dir.exists():
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    _log_job(job_id, "cleaned up")
 
 
 def _job_payload(job: Job) -> dict:
@@ -135,12 +155,12 @@ def _process_job(job_id: str, input_pdf: Path) -> None:
         if not font_path:
             raise RuntimeError("ไม่พบฟอนต์ภาษาไทยในเครื่อง")
 
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         stem = _safe_output_stem(original_name)
-        output_pdf = OUTPUT_DIR / f"{stem}_พร้อมส่งลูกค้า_{timestamp}.pdf"
-        report_xlsx = OUTPUT_DIR / f"{stem}_report_{timestamp}.xlsx"
-        preview_png = OUTPUT_DIR / f"{stem}_preview_{timestamp}.png"
+        output_dir = input_pdf.parent
+        output_pdf = output_dir / f"{stem}_พร้อมส่งลูกค้า_{timestamp}.pdf"
+        report_xlsx = output_dir / f"{stem}_report_{timestamp}.xlsx"
+        preview_png = output_dir / f"{stem}_preview_{timestamp}.png"
 
         _set_job(job_id, percent=68, phase="เขียนโค้ดลงใบปะหน้า")
         report_rows = create_output_pdf(
@@ -162,6 +182,7 @@ def _process_job(job_id: str, input_pdf: Path) -> None:
         _set_job(job_id, percent=88, phase="เตรียมไฟล์บันทึก")
         report_xlsx.write_bytes(report_to_excel_bytes(report_rows))
         preview_png.write_bytes(render_page(output_pdf, page_index=0, zoom=1.7))
+        input_pdf.unlink(missing_ok=True)
         _log_job(job_id, "finished", seconds=round(time.perf_counter() - started_at, 2))
 
         _set_job(
@@ -176,9 +197,11 @@ def _process_job(job_id: str, input_pdf: Path) -> None:
             report_xlsx=report_xlsx,
             preview_png=preview_png,
         )
+        _schedule_job_cleanup(job_id, JOB_RETENTION_SECONDS)
     except Exception as exc:
         traceback.print_exc()
         _log_job(job_id, "failed", error=repr(exc))
+        input_pdf.unlink(missing_ok=True)
         _set_job(
             job_id,
             status="error",
@@ -186,6 +209,7 @@ def _process_job(job_id: str, input_pdf: Path) -> None:
             phase="ทำงานไม่สำเร็จ",
             error=f"{type(exc).__name__}: {exc}",
         )
+        _schedule_job_cleanup(job_id, ERROR_RETENTION_SECONDS)
 
 
 class CustomerWebHandler(BaseHTTPRequestHandler):
@@ -273,10 +297,17 @@ class CustomerWebHandler(BaseHTTPRequestHandler):
         input_pdf = temp_dir / "input.pdf"
         input_pdf.write_bytes(file_item.file.read())
         if input_pdf.stat().st_size == 0:
+            shutil.rmtree(temp_dir, ignore_errors=True)
             return self._send_error_json("ไฟล์ PDF ว่างหรืออัปโหลดไม่ครบ")
 
         with JOBS_LOCK:
-            JOBS[job_id] = Job(id=job_id, original_name=filename, percent=3, phase="กำลังอัปโหลด")
+            JOBS[job_id] = Job(
+                id=job_id,
+                original_name=filename,
+                percent=3,
+                phase="กำลังอัปโหลด",
+                temp_dir=temp_dir,
+            )
 
         thread = threading.Thread(target=_process_job, args=(job_id, input_pdf), daemon=True)
         thread.start()
