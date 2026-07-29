@@ -17,3 +17,4 @@ backups/
 .desktop-build/
 build/
 dist/
+.playwright-cli/
