@@ -20,9 +20,14 @@ python -m PyInstaller --noconfirm --clean \
 
 SIGNING_IDENTITY="${APPLE_SIGNING_IDENTITY:--}"
 codesign --deep --force --options runtime --sign "$SIGNING_IDENTITY" dist/StampBOX.app
+
+DMG_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/stampbox-dmg.XXXXXX")"
+trap 'rm -rf "$DMG_STAGE"' EXIT
+ditto dist/StampBOX.app "$DMG_STAGE/StampBOX.app"
+ln -s /Applications "$DMG_STAGE/Applications"
 hdiutil create \
   -volname "StampBOX" \
-  -srcfolder dist/StampBOX.app \
+  -srcfolder "$DMG_STAGE" \
   -ov \
   -format UDZO \
   dist/StampBOX-macOS-1.0.0.dmg

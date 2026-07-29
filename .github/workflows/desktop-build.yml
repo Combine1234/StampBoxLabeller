@@ -41,8 +41,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: StampBOX-macOS
-          path: |
-            dist/StampBOX.app
-            dist/StampBOX-macOS-1.0.0.dmg
+          path: dist/StampBOX-macOS-1.0.0.dmg
           if-no-files-found: error
           compression-level: 0
