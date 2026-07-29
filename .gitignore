@@ -13,3 +13,7 @@ backups/
 .env.*
 .env.local
 .vercel/
+.venv-desktop/
+.desktop-build/
+build/
+dist/

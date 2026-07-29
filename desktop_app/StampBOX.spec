@@ -1,0 +1,78 @@
+from pathlib import Path
+import sys
+
+
+ROOT = Path(SPECPATH).parent
+DESKTOP_DIR = ROOT / "desktop_app"
+WINDOWS_ICON = DESKTOP_DIR / "assets" / "StampBOX.ico"
+MACOS_ICON = DESKTOP_DIR / "assets" / "StampBOX.icns"
+
+platform_hidden_imports = []
+if sys.platform == "win32":
+    platform_hidden_imports = ["webview.platforms.edgechromium"]
+elif sys.platform == "darwin":
+    platform_hidden_imports = ["webview.platforms.cocoa"]
+
+a = Analysis(
+    [str(DESKTOP_DIR / "launcher.py")],
+    pathex=[str(ROOT)],
+    binaries=[],
+    datas=[
+        (str(DESKTOP_DIR / "static"), "desktop_app/static"),
+        (str(ROOT / "assets"), "assets"),
+        (str(ROOT / "config"), "config"),
+    ],
+    hiddenimports=["customer_web.server", *platform_hidden_imports],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=["streamlit", "flask", "pytest", "pandas", "numpy", "pyarrow"],
+    noarchive=False,
+    optimize=0,
+)
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="StampBOX",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=str(MACOS_ICON if sys.platform == "darwin" else WINDOWS_ICON),
+    version=str(DESKTOP_DIR / "version_info.txt") if sys.platform == "win32" else None,
+)
+
+collect = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name="StampBOX",
+)
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        collect,
+        name="StampBOX.app",
+        icon=str(MACOS_ICON),
+        bundle_identifier="com.stampbox.desktop",
+        info_plist={
+            "CFBundleDisplayName": "StampBOX",
+            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleVersion": "1.0.0",
+            "LSMinimumSystemVersion": "11.0",
+            "NSHighResolutionCapable": True,
+        },
+    )

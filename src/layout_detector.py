@@ -16,9 +16,9 @@ DEFAULT_LAYOUT_CONFIG: dict[str, Any] = {
     },
     "text": {
         "font_size_max": 22.0,
-        "font_size_min": 10.0,
+        "font_size_min": 6.0,
         "font_size_step": 1.0,
-        "line_height": 1.2,
+        "line_height": 1.25,
         "max_lines": 6,
         "align": "center",
         "color": "#0057D9",

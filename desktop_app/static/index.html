@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StampBOX</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-label="StampBOX PDF label tool">
+        <header class="topbar">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+              <span>PDF</span>
+            </div>
+            <div>
+              <h1>StampBOX</h1>
+              <p>ใบปะหน้าพร้อมโค้ดสินค้า</p>
+            </div>
+          </div>
+          <div class="status-pill" id="systemStatus">พร้อมใช้งาน</div>
+        </header>
+
+        <div class="main-grid">
+          <section class="upload-panel">
+            <label class="dropzone" id="dropzone" for="pdfInput">
+              <input id="pdfInput" type="file" accept="application/pdf,.pdf" />
+              <span class="file-icon" aria-hidden="true">
+                <svg viewBox="0 0 40 48" role="img">
+                  <path d="M8 1.5h17.8L38.5 14v28.5A4 4 0 0 1 34.5 46H8a4 4 0 0 1-4-4V5.5a4 4 0 0 1 4-4Z" />
+                  <path d="M25.5 2v10.2a2.5 2.5 0 0 0 2.5 2.5h10" />
+                  <path d="M11 27h18M11 33h13" />
+                </svg>
+              </span>
+              <span class="drop-title">วางไฟล์ PDF ที่นี่</span>
+              <span class="drop-subtitle">หรือคลิกเพื่อเลือกไฟล์</span>
+              <span class="selected-file" id="selectedFile"></span>
+            </label>
+
+            <div class="action-row">
+              <button class="primary-button" id="startButton" disabled>
+                <span class="button-icon" aria-hidden="true">↗</span>
+                เริ่มทำไฟล์
+              </button>
+              <button class="ghost-button" id="resetButton" disabled>
+                ล้างไฟล์
+              </button>
+            </div>
+
+            <div class="progress-wrap" id="progressWrap" aria-live="polite">
+              <div class="progress-head">
+                <span id="phaseText">รอไฟล์ PDF</span>
+                <strong id="percentText">0%</strong>
+              </div>
+              <div class="progress-track">
+                <div class="progress-bar" id="progressBar"></div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="result-panel">
+            <div class="result-empty" id="emptyState">
+              <div class="scan-line" aria-hidden="true"></div>
+              <p>ผลลัพธ์จะแสดงตรงนี้</p>
+            </div>
+
+            <div class="result-ready hidden" id="resultReady">
+              <div class="scoreboard">
+                <div>
+                  <span>สำเร็จ</span>
+                  <strong id="writtenCount">0</strong>
+                </div>
+                <div>
+                  <span>ทั้งหมด</span>
+                  <strong id="totalCount">0</strong>
+                </div>
+                <div>
+                  <span>ต้องเช็ก</span>
+                  <strong id="failedCount">0</strong>
+                </div>
+              </div>
+
+              <a class="download-button" id="downloadButton" href="#" download>
+                <span aria-hidden="true">↓</span>
+                บันทึก PDF พร้อมส่งลูกค้า
+              </a>
+
+              <a class="report-link" id="reportButton" href="#" download>
+                ดาวน์โหลดรายงาน Excel
+              </a>
+            </div>
+          </aside>
+        </div>
+
+        <section class="preview-section hidden" id="previewSection">
+          <div class="preview-head">
+            <h2>ตัวอย่างหน้าแรก</h2>
+            <span id="savedPath"></span>
+          </div>
+          <div class="preview-frame">
+            <img id="previewImage" alt="ตัวอย่าง PDF หน้าแรก" />
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

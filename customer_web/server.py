@@ -28,6 +28,7 @@ from src.pdf_product_extractor import build_rows_from_pdf
 from src.preview import render_page
 from src.product_mapping import DEFAULT_MAPPING_URL
 from src.report import report_to_excel_bytes
+from src.stamp_guard import is_stampbox_output_pdf, looks_like_stampbox_output_name
 
 LOCKED_MAPPING_URL = DEFAULT_MAPPING_URL
 MAX_UPLOAD_BYTES = int(os.environ.get("STAMPBOX_MAX_UPLOAD_MB", "35")) * 1024 * 1024
@@ -291,6 +292,11 @@ class CustomerWebHandler(BaseHTTPRequestHandler):
         filename = Path(file_item.filename or "labels.pdf").name
         if not filename.lower().endswith(".pdf"):
             return self._send_error_json("รองรับเฉพาะไฟล์ PDF")
+        if looks_like_stampbox_output_name(filename):
+            return self._send_error_json(
+                "PDF นี้เคยเขียนโค้ดแล้ว กรุณาเลือกไฟล์ PDF ต้นฉบับ",
+                status=409,
+            )
 
         job_id = uuid.uuid4().hex
         temp_dir = Path(tempfile.mkdtemp(prefix=f"shopee_job_{job_id}_"))
@@ -299,6 +305,17 @@ class CustomerWebHandler(BaseHTTPRequestHandler):
         if input_pdf.stat().st_size == 0:
             shutil.rmtree(temp_dir, ignore_errors=True)
             return self._send_error_json("ไฟล์ PDF ว่างหรืออัปโหลดไม่ครบ")
+        try:
+            already_processed = is_stampbox_output_pdf(input_pdf, filename)
+        except Exception:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return self._send_error_json("ไม่สามารถเปิดไฟล์ PDF นี้ได้ กรุณาตรวจสอบไฟล์แล้วลองใหม่")
+        if already_processed:
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            return self._send_error_json(
+                "PDF นี้เคยเขียนโค้ดแล้ว กรุณาเลือกไฟล์ PDF ต้นฉบับ",
+                status=409,
+            )
 
         with JOBS_LOCK:
             JOBS[job_id] = Job(

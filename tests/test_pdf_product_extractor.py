@@ -46,6 +46,58 @@ def test_product_code_for_item_uses_keyword_and_variant_token() -> None:
     assert code == "LECTURE-NAVY"
 
 
+def test_single_item_quantity_is_not_mistaken_for_second_row() -> None:
+    text = "\n".join(
+        [
+            "#",
+            "ชื่อสินค้า",
+            "ตัวเลือกสินค้า",
+            "จำนวน",
+            "1",
+            "SOGOODS เก้าอี้พนักพิง B",
+            "สีน้ำเงิน",
+            "2",
+            "2",
+            "ORDER01",
+            "Shopee Order No.",
+        ]
+    )
+
+    items = extract_items_from_label_text(text, order_no="ORDER01")
+
+    assert items == [
+        {
+            "short_product_name": "เก้าอี้พนักพิง B",
+            "variant": "สีน้ำเงิน",
+            "quantity": 2,
+        }
+    ]
+
+
+def test_quantity_matching_next_row_number_keeps_both_items() -> None:
+    text = "\n".join(
+        [
+            "จำนวน",
+            "1",
+            "SOGOODS สินค้า A",
+            "สีแดง",
+            "2",
+            "2",
+            "SOGOODS สินค้า B",
+            "สีน้ำเงิน",
+            "3",
+            "5",
+            "ORDER02",
+            "Shopee Order No.",
+        ]
+    )
+
+    items = extract_items_from_label_text(text, order_no="ORDER02")
+
+    assert [item["quantity"] for item in items] == [2, 3]
+    assert [item["variant"] for item in items] == ["สีแดง", "สีน้ำเงิน"]
+
+
 def test_product_code_variant_tokens_do_not_come_from_product_name() -> None:
     code = product_code_for_item("ตู้ลิ้นชัก 3-4-5ชั้น", "3ชั้นมั่งมี")
 

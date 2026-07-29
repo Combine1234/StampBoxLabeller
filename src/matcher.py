@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+import re
 from typing import Any
 
 from .models import DataIndex, MatchResult
@@ -90,21 +91,101 @@ def match_label_to_excel(
 
 def _option_quantity_line(row: dict[str, Any]) -> str:
     product_code = clean_scalar(row.get("product_code"))
-    variant = clean_scalar(row.get("variant"))
     quantity = clean_scalar(row.get("quantity"))
-    label = product_code or variant
-    if label and quantity:
-        return f"{label} x{quantity}"
-    if label:
-        return label
-    if quantity:
-        return f"x{quantity}"
+    expanded_bundle = _expand_bundle_code(product_code, quantity)
+    if expanded_bundle:
+        return expanded_bundle
+    if product_code and quantity:
+        return f"{product_code} x{quantity}"
+    if product_code:
+        return product_code
     return ""
 
 
-def _option_quantity_lines(rows: list[dict[str, Any]]) -> list[str]:
+def _quantity_int(value: Any) -> int | None:
+    cleaned = clean_scalar(value)
+    try:
+        number = float(cleaned)
+    except (TypeError, ValueError):
+        return None
+    if not number.is_integer() or number < 0:
+        return None
+    return int(number)
+
+
+def _expand_bundle_code(product_code: str, quantity: Any) -> str:
+    if "+" not in product_code:
+        return ""
+    multiplier = _quantity_int(quantity)
+    if multiplier is None:
+        return ""
+
+    components: list[tuple[str, int, str]] = []
+    for raw_part in product_code.split("+"):
+        match = re.fullmatch(r"\s*(.+?\D)\s*(\d+)(?:\s+(.+?))?\s*", raw_part)
+        if not match:
+            return ""
+        name = match.group(1).strip()
+        count = int(match.group(2))
+        suffix = (match.group(3) or "").strip()
+        components.append((name, count, suffix))
+
+    if len(components) < 2 or any(suffix for _name, _count, suffix in components[:-1]):
+        return ""
+
+    aliases = {"สบาย": "เก้าอี้สบาย"}
+    color = components[-1][2]
+    pieces = [
+        f"{aliases.get(name, name)} {count * multiplier}"
+        for name, count, _suffix in components
+    ]
+    prefix = f"{color}: " if color else ""
+    return prefix + " / ".join(pieces)
+
+
+def _code_variant_parts(product_code: str) -> tuple[str, str] | None:
+    match = re.fullmatch(r"\s*([^,]+?)\s*,\s*(.+?)\s*", product_code)
+    if not match:
+        return None
+    return match.group(1), match.group(2)
+
+
+def _compact_variant_lines(base: str, entries: list[tuple[str, Any]]) -> list[str]:
+    quantities: dict[str, int] = {}
+    for variant, raw_quantity in entries:
+        quantity = _quantity_int(raw_quantity)
+        if quantity is None:
+            continue
+        quantities[variant] = quantities.get(variant, 0) + quantity
+
+    pieces = [f"{variant} {quantity}" for variant, quantity in quantities.items()]
     lines: list[str] = []
+    for start in range(0, len(pieces), 3):
+        chunk = " / ".join(pieces[start : start + 3])
+        lines.append(f"{base} {chunk}" if start == 0 else chunk)
+    return lines
+
+
+def _option_quantity_lines(rows: list[dict[str, Any]]) -> list[str]:
+    prepared: list[tuple[dict[str, Any], str, tuple[str, str] | None]] = []
+    grouped: dict[str, list[tuple[str, Any]]] = defaultdict(list)
     for row in rows:
+        product_code = clean_scalar(row.get("product_code"))
+        parts = _code_variant_parts(product_code)
+        prepared.append((row, product_code, parts))
+        if parts:
+            grouped[parts[0]].append((parts[1], row.get("quantity")))
+
+    compact_bases = {base for base, entries in grouped.items() if len(entries) >= 2}
+    emitted_bases: set[str] = set()
+    lines: list[str] = []
+    for row, _product_code, parts in prepared:
+        if parts and parts[0] in compact_bases:
+            base = parts[0]
+            if base not in emitted_bases:
+                lines.extend(_compact_variant_lines(base, grouped[base]))
+                emitted_bases.add(base)
+            continue
         line = _option_quantity_line(row)
         if line:
             lines.append(line)

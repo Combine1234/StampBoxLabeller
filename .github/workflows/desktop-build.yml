@@ -1,0 +1,48 @@
+name: Build StampBOX Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "codex/**"
+    paths:
+      - ".github/workflows/desktop-build.yml"
+      - "assets/**"
+      - "config/**"
+      - "customer_web/**"
+      - "desktop_app/**"
+      - "src/**"
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    name: macOS DMG
+    runs-on: macos-14
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: desktop_app/requirements-desktop.txt
+
+      - name: Build app and DMG
+        run: |
+          chmod +x desktop_app/build_macos.sh
+          ./desktop_app/build_macos.sh
+
+      - name: Upload macOS installer
+        uses: actions/upload-artifact@v6
+        with:
+          name: StampBOX-macOS
+          path: |
+            dist/StampBOX.app
+            dist/StampBOX-macOS-1.0.0.dmg
+          if-no-files-found: error
+          compression-level: 0

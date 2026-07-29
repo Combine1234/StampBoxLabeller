@@ -11,7 +11,14 @@ import fitz
 
 from .layout_detector import find_safe_overlay_rect, load_layout_config
 from .matcher import build_overlay_text, group_excel_rows, match_label
-from .pdf_reader import extract_label_text, extract_order_no, extract_tracking_no, split_page_into_labels
+from .pdf_reader import (
+    extract_label_text,
+    extract_order_no,
+    extract_tracking_no,
+    extract_tracking_no_from_text,
+    split_page_into_labels,
+)
+from .stamp_guard import mark_stampbox_output
 from .validator import (
     STATUS_FAILED,
     STATUS_MATCHED,
@@ -29,9 +36,9 @@ WINDOWS_FONT_CANDIDATES = (
     r"C:\Windows\Fonts\tahoma.ttf",
 )
 PROJECT_FONT_CANDIDATES = (
-    Path("assets/fonts/NotoSansThai-Regular.ttf"),
     Path("assets/fonts/NotoSansThai-SemiBold.ttf"),
     Path("assets/fonts/Sarabun-Regular.ttf"),
+    Path("assets/fonts/NotoSansThai-Regular.ttf"),
 )
 
 
@@ -99,6 +106,19 @@ def _quantity_value(line: str) -> int | None:
     return int(match.group(1))
 
 
+def _quantity_tokens(line: str) -> list[tuple[int, int, int]]:
+    tokens: list[tuple[int, int, int]] = []
+    pattern = re.compile(
+        r"\bx\s*(?P<x_quantity>\d+)|(?<![\w])(?P<plain_quantity>\d+)(?=\s*(?:/|$))",
+        flags=re.IGNORECASE,
+    )
+    for match in pattern.finditer(line):
+        group_name = "x_quantity" if match.group("x_quantity") else "plain_quantity"
+        start, end = match.span(group_name)
+        tokens.append((start, end, int(match.group(group_name))))
+    return tokens
+
+
 def _draw_quantity_underlines(
     page: fitz.Page,
     rect: fitz.Rect,
@@ -113,40 +133,42 @@ def _draw_quantity_underlines(
     line_step = font_size * line_height
     baseline_y = rect.y0 + font_size
     for index, line in enumerate(text.splitlines()):
-        quantity = _quantity_value(line)
-        if quantity is None or quantity <= underline_quantity_gt:
-            continue
-        quantity_match = re.search(r"x\s*(\d+)\s*$", line, flags=re.IGNORECASE)
-        if not quantity_match:
-            continue
         line_x = _line_x(rect, line, font, font_size, align)
-        quantity_text = quantity_match.group(1)
-        prefix = line[: quantity_match.start(1)]
-        x0 = line_x + _line_width(prefix, font, font_size)
-        x1 = x0 + _line_width(quantity_text, font, font_size)
         y = baseline_y + (index * line_step) + 1.5
-        page.draw_line((x0, y), (x1, y), color=color, width=max(font_size * 0.08, 1.0), overlay=True)
+        for start, end, quantity in _quantity_tokens(line):
+            if quantity <= underline_quantity_gt:
+                continue
+            x0 = line_x + _line_width(line[:start], font, font_size)
+            x1 = x0 + _line_width(line[start:end], font, font_size)
+            page.draw_line(
+                (x0, y),
+                (x1, y),
+                color=color,
+                width=max(font_size * 0.08, 1.0),
+                overlay=True,
+            )
 
 
 def _html_overlay_text(text: str, underline_quantity_gt: int | None) -> str:
     html_lines: list[str] = []
     for line in text.splitlines():
-        quantity = _quantity_value(line)
-        quantity_match = re.search(r"x\s*(\d+)\s*$", line, flags=re.IGNORECASE)
-        if underline_quantity_gt is None or quantity is None or quantity <= underline_quantity_gt or not quantity_match:
+        tokens = [
+            (start, end)
+            for start, end, quantity in _quantity_tokens(line)
+            if underline_quantity_gt is not None and quantity > underline_quantity_gt
+        ]
+        if not tokens:
             html_lines.append(f'<div class="line">{escape(line)}</div>')
             continue
 
-        before = line[: quantity_match.start(1)]
-        quantity_text = quantity_match.group(1)
-        after = line[quantity_match.end(1) :]
-        html_lines.append(
-            '<div class="line">'
-            f"{escape(before)}"
-            f'<span class="qty-underline">{escape(quantity_text)}</span>'
-            f"{escape(after)}"
-            "</div>"
-        )
+        fragments = ['<div class="line">']
+        cursor = 0
+        for start, end in tokens:
+            fragments.append(escape(line[cursor:start]))
+            fragments.append(f'<span class="qty-underline">{escape(line[start:end])}</span>')
+            cursor = end
+        fragments.extend((escape(line[cursor:]), "</div>"))
+        html_lines.append("".join(fragments))
     return "".join(html_lines)
 
 
@@ -171,11 +193,13 @@ def _insert_html_overlay(
     underline_color: tuple[float, float, float] | None,
 ) -> tuple[float, float]:
     font_file = Path(font_path)
+    font_weight = 600 if "semibold" in font_file.stem.casefold() else 400
     archive = fitz.Archive(str(font_file.parent))
     css = f"""
     @font-face {{
         font-family: LabelThai;
         src: url({font_file.name});
+        font-weight: {font_weight};
     }}
     body {{
         margin: 0;
@@ -183,7 +207,7 @@ def _insert_html_overlay(
         color: {_rgb_to_hex(color)};
         font-family: LabelThai;
         font-size: {font_size}px;
-        font-weight: 400;
+        font-weight: {font_weight};
         line-height: {line_height};
         text-align: {_html_align(align)};
     }}
@@ -257,6 +281,48 @@ def write_overlay(
                 "remaining_height": remaining_height,
                 "scale": scale,
             }
+
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) >= 4:
+        dense_line_height = min(line_height, 1.0)
+        lowest_size = min(font_sizes or [6.0])
+        dense_sizes = [round(size, 2) for size in [lowest_size - 1, lowest_size - 2]]
+        dense_sizes = [size for size in dense_sizes if size >= 4.0]
+        for size in dense_sizes:
+            if any(_line_width(line, font, size) > rect.width for line in lines):
+                continue
+            remaining_height, scale = _insert_html_overlay(
+                page,
+                rect,
+                text,
+                str(font_path),
+                size,
+                dense_line_height,
+                align,
+                color,
+                underline_quantity_gt,
+                underline_color,
+            )
+            if remaining_height >= 0:
+                if underline_quantity_gt is not None:
+                    _draw_quantity_underlines(
+                        page,
+                        rect,
+                        text,
+                        font,
+                        size,
+                        dense_line_height,
+                        align,
+                        underline_color or color,
+                        underline_quantity_gt,
+                    )
+                return {
+                    "status": STATUS_WRITTEN,
+                    "message": "Success",
+                    "font_size": size,
+                    "remaining_height": remaining_height,
+                    "scale": scale,
+                }
 
     return {"status": STATUS_TEXT_TOO_LONG, "message": "Text did not fit in safe area"}
 
@@ -336,7 +402,7 @@ def create_output_pdf(
                 global_index += 1
                 label_text = extract_label_text(page, label_rect)
                 order_no = extract_order_no(label_text)
-                tracking_no = extract_tracking_no(page, label_rect)
+                tracking_no = extract_tracking_no_from_text(label_text) or extract_tracking_no(page, label_rect)
                 match = match_label(order_no, tracking_no, data_index)
                 status = match.status
                 message = match.message
@@ -346,14 +412,18 @@ def create_output_pdf(
                 if match.rows:
                     seen_row_ids.update(str(row.get("_row_id")) for row in match.rows)
                     overlay_text = build_overlay_text(match.rows)
-                    overlay_rect = find_safe_overlay_rect(page, label_rect, config)
-                    if overlay_rect is None:
+                    if not overlay_text.strip():
+                        status = STATUS_MATCHED
+                        message = "Matched label, but no mapped product code to write"
+                    else:
+                        overlay_rect = find_safe_overlay_rect(page, label_rect, config)
+                    if overlay_text.strip() and overlay_rect is None:
                         status = STATUS_NO_SAFE_SPACE
                         message = "No safe empty area in product table"
-                    elif dry_run:
+                    elif overlay_text.strip() and dry_run:
                         status = STATUS_MATCHED
                         message = "Ready to write"
-                    else:
+                    elif overlay_text.strip():
                         outcome = write_overlay(
                             page,
                             overlay_rect,
@@ -406,6 +476,7 @@ def create_output_pdf(
                 raise ValueError("output_pdf is required unless dry_run=True")
             output_path = Path(output_pdf)
             output_path.parent.mkdir(parents=True, exist_ok=True)
+            mark_stampbox_output(doc)
             doc.save(output_path)
             LOGGER.info("Wrote output PDF to %s", output_path)
     finally:

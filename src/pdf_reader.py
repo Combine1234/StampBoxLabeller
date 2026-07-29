@@ -66,9 +66,26 @@ def _count_order_numbers(text: str) -> int:
     return len({normalize_key(match) for match in matches if normalize_key(match)})
 
 
-def _text_bounds(page: fitz.Page, rect: fitz.Rect) -> fitz.Rect | None:
+def _words_in_rect(words: list[tuple], rect: fitz.Rect) -> list[tuple]:
+    selected: list[tuple] = []
+    for word in words:
+        x0, y0, x1, y1, text, *_ = word
+        if not str(text).strip():
+            continue
+        center = fitz.Point((float(x0) + float(x1)) / 2, (float(y0) + float(y1)) / 2)
+        if center in rect:
+            selected.append(word)
+    return selected
+
+
+def _text_from_words(words: list[tuple]) -> str:
+    ordered = sorted(words, key=lambda word: (word[5] if len(word) > 5 else 0, word[6] if len(word) > 6 else 0, word[7] if len(word) > 7 else 0, word[1], word[0]))
+    return " ".join(str(word[4]) for word in ordered if str(word[4]).strip())
+
+
+def _text_bounds_from_words(words: list[tuple]) -> fitz.Rect | None:
     bounds: fitz.Rect | None = None
-    for word in page.get_text("words", clip=rect):
+    for word in words:
         x0, y0, x1, y1, text, *_ = word
         if not str(text).strip():
             continue
@@ -77,8 +94,13 @@ def _text_bounds(page: fitz.Page, rect: fitz.Rect) -> fitz.Rect | None:
     return bounds
 
 
-def _label_cell_score(page: fitz.Page, rect: fitz.Rect, require_order: bool) -> tuple[float, bool]:
-    text = extract_label_text(page, rect)
+def _text_bounds(page: fitz.Page, rect: fitz.Rect) -> fitz.Rect | None:
+    return _text_bounds_from_words(page.get_text("words", clip=rect))
+
+
+def _label_cell_score(words: list[tuple], rect: fitz.Rect, require_order: bool) -> tuple[float, bool]:
+    rect_words = _words_in_rect(words, rect)
+    text = _text_from_words(rect_words)
     order_count = _count_order_numbers(text)
     tracking_count = len(TRACKING_PATTERN.findall(text))
     if require_order and order_count == 0:
@@ -86,7 +108,7 @@ def _label_cell_score(page: fitz.Page, rect: fitz.Rect, require_order: bool) -> 
     if order_count == 0 and tracking_count == 0:
         return (0.0, False)
 
-    bounds = _text_bounds(page, rect)
+    bounds = _text_bounds_from_words(rect_words)
     width_ratio = (bounds.width / rect.width) if bounds and rect.width else 0.0
     height_ratio = (bounds.height / rect.height) if bounds and rect.height else 0.0
     duplicate_penalty = max(order_count - 1, 0) * 120.0
@@ -101,17 +123,19 @@ def detect_label_rects(
 ) -> list[fitz.Rect]:
     best_score = float("-inf")
     best_rects: list[fitz.Rect] = []
-    require_order = _count_order_numbers(extract_label_text(page, page.rect)) > 0
+    page_words = page.get_text("words")
+    page_text = _text_from_words(page_words)
+    require_order = _count_order_numbers(page_text) > 0
 
     for rows, columns in candidates:
         detected: list[fitz.Rect] = []
         candidate_score = 0.0
         for rect in _grid_rects(page, rows, columns):
-            score, has_label = _label_cell_score(page, rect, require_order=require_order)
+            score, has_label = _label_cell_score(page_words, rect, require_order=require_order)
             if has_label:
                 detected.append(rect)
                 candidate_score += score
-            elif require_order and _text_bounds(page, rect) is not None:
+            elif require_order and _text_bounds_from_words(_words_in_rect(page_words, rect)) is not None:
                 candidate_score -= 180.0
 
         if not detected:
@@ -149,6 +173,11 @@ def extract_order_no(text: str) -> str | None:
         matches = [normalize_key(match) for match in ORDER_FALLBACK_PATTERN.findall(text)]
     matches = [match for match in matches if match]
     return matches[0] if matches else None
+
+
+def extract_tracking_no_from_text(text: str) -> str | None:
+    match = TRACKING_PATTERN.search(text)
+    return match.group(0) if match else None
 
 
 def _candidate_tracking_words(

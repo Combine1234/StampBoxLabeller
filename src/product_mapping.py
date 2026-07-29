@@ -3,7 +3,9 @@ from __future__ import annotations
 import csv
 import difflib
 import io
+import os
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -29,6 +31,9 @@ class ProductMappingRow:
     variant: str
     code: str
     row_text: str = ""
+    product_norm: str = ""
+    variant_norm: str = ""
+    row_norm: str = ""
 
 
 @dataclass(slots=True)
@@ -36,6 +41,9 @@ class ProductMappingMatch:
     code: str | None
     score: float
     row: ProductMappingRow | None = None
+
+
+_MAPPING_CACHE: dict[str, tuple[float, list[ProductMappingRow]]] = {}
 
 
 def google_sheet_csv_url(url: str) -> str:
@@ -56,7 +64,14 @@ def _read_text(source: str | Path) -> str:
 
 
 def load_product_mapping(source: str | Path | None = None) -> list[ProductMappingRow]:
-    csv_text = _read_text(source or DEFAULT_MAPPING_URL)
+    source_key = str(source or DEFAULT_MAPPING_URL)
+    cache_seconds = int(os.environ.get("STAMPBOX_MAPPING_CACHE_SECONDS", "300"))
+    if cache_seconds > 0 and source_key in _MAPPING_CACHE:
+        cached_at, cached_rows = _MAPPING_CACHE[source_key]
+        if time.monotonic() - cached_at <= cache_seconds:
+            return cached_rows
+
+    csv_text = _read_text(source_key)
     reader = csv.DictReader(io.StringIO(csv_text))
     if not reader.fieldnames:
         return []
@@ -72,14 +87,20 @@ def load_product_mapping(source: str | Path | None = None) -> list[ProductMappin
         variant = str(raw.get(variant_key, "") or "").strip()
         code = str(raw.get(code_key, "") or "").strip()
         if product_name and code:
+            row_text = " ".join(str(value or "") for value in raw.values())
             rows.append(
                 ProductMappingRow(
                     product_name=product_name,
                     variant=variant,
                     code=code,
-                    row_text=" ".join(str(value or "") for value in raw.values()),
+                    row_text=row_text,
+                    product_norm=normalize_match_text(product_name),
+                    variant_norm=normalize_match_text(variant),
+                    row_norm=normalize_match_text(row_text),
                 )
             )
+    if cache_seconds > 0:
+        _MAPPING_CACHE[source_key] = (time.monotonic(), rows)
     return rows
 
 
@@ -111,16 +132,20 @@ def _contains_score(shorter: str, longer: str) -> float:
     return 0.0
 
 
-def _text_score(left: str, right: str) -> float:
-    left_norm = normalize_match_text(left)
-    right_norm = normalize_match_text(right)
+def _text_score_norm(left_norm: str, right_norm: str, use_ratio: bool = True) -> float:
     if not left_norm or not right_norm:
         return 0.0
     if left_norm == right_norm:
         return 1.0
     contains = max(_contains_score(left_norm, right_norm), _contains_score(right_norm, left_norm))
+    if contains >= 0.95 or not use_ratio:
+        return contains
     ratio = difflib.SequenceMatcher(None, left_norm, right_norm).ratio()
     return max(contains, ratio)
+
+
+def _text_score(left: str, right: str) -> float:
+    return _text_score_norm(normalize_match_text(left), normalize_match_text(right))
 
 
 def find_product_code(
@@ -129,13 +154,19 @@ def find_product_code(
     mapping_rows: list[ProductMappingRow],
     min_score: float = 0.58,
 ) -> ProductMappingMatch:
+    product_norm = normalize_match_text(product_name)
+    variant_norm = normalize_match_text(variant)
+    row_query_norm = normalize_match_text(f"{product_name} {variant}")
     best = ProductMappingMatch(code=None, score=0.0, row=None)
     for row in mapping_rows:
-        product_score = _text_score(product_name, row.product_name)
-        variant_score = _text_score(variant, row.variant)
-        row_score = _text_score(f"{product_name} {variant}", row.row_text)
+        row_product_norm = row.product_norm or normalize_match_text(row.product_name)
+        row_variant_norm = row.variant_norm or normalize_match_text(row.variant)
+        row_norm = row.row_norm or normalize_match_text(row.row_text)
+        product_score = _text_score_norm(product_norm, row_product_norm)
+        variant_score = _text_score_norm(variant_norm, row_variant_norm) if variant_norm else 0.0
+        row_score = _text_score_norm(row_query_norm, row_norm, use_ratio=False)
         combined_score = max((product_score * 0.72) + (variant_score * 0.28), row_score)
-        if variant and row.variant and normalize_match_text(variant) in normalize_match_text(row.variant):
+        if variant_norm and row_variant_norm and variant_norm in row_variant_norm:
             combined_score = max(combined_score, product_score * 0.85 + 0.15)
         if combined_score > best.score:
             best = ProductMappingMatch(code=row.code, score=combined_score, row=row)
