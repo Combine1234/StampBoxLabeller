@@ -19,8 +19,18 @@ permissions:
 
 jobs:
   macos:
-    name: macOS DMG
-    runs-on: macos-14
+    name: macOS DMG (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            label: Apple Silicon
+            suffix: arm64
+          - runner: macos-15-intel
+            label: Intel
+            suffix: x64
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -36,11 +46,14 @@ jobs:
         run: |
           chmod +x desktop_app/build_macos.sh
           ./desktop_app/build_macos.sh
+          mv \
+            dist/StampBOX-macOS-1.0.0.dmg \
+            "dist/StampBOX-macOS-${{ matrix.suffix }}-1.0.0.dmg"
 
       - name: Upload macOS installer
         uses: actions/upload-artifact@v6
         with:
-          name: StampBOX-macOS
-          path: dist/StampBOX-macOS-1.0.0.dmg
+          name: StampBOX-macOS-${{ matrix.suffix }}
+          path: dist/StampBOX-macOS-${{ matrix.suffix }}-1.0.0.dmg
           if-no-files-found: error
           compression-level: 0

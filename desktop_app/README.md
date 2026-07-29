@@ -50,8 +50,10 @@ dist/StampBOX-macOS-1.0.0.dmg
 ```
 
 ถ้าไม่มีเครื่อง Mac ให้ push โค้ดขึ้น GitHub แล้วไปที่แท็บ **Actions** เลือก
-**Build StampBOX Desktop** > **Run workflow** ระบบจะ build บน macOS และให้ดาวน์โหลด
-artifact ชื่อ `StampBOX-macOS`
+**Build StampBOX Desktop** > **Run workflow** ระบบจะ build บน macOS และให้ดาวน์โหลด:
+
+- `StampBOX-macOS-arm64` สำหรับ Apple Silicon (M1/M2/M3/M4 และใหม่กว่า)
+- `StampBOX-macOS-x64` สำหรับ Intel Mac
 
 กรณียังไม่มี Apple Developer certificate สคริปต์จะเซ็นแบบ ad-hoc ผู้ใช้ปลายทาง
 อาจต้องคลิกขวาที่แอปแล้วเลือก Open ในครั้งแรก สำหรับการแจกให้ลูกค้าโดยไม่ขึ้นคำเตือน
