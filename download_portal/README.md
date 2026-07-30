@@ -18,5 +18,6 @@ The production Vercel project is `stampbox-download`.
 vercel deploy --prod
 ```
 
-Installer files are hosted on Google Drive. Update their direct-download URLs in
-`index.html` when a new release is uploaded.
+The Windows installer is hosted on Google Drive. Signed-off macOS builds are
+published as GitHub Release assets. Update their URLs in `index.html` when a new
+release is uploaded.

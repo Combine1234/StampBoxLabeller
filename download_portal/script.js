@@ -46,7 +46,7 @@ function markRecommendedPlatform() {
 
 function showDownloadToast(platform) {
   toast.querySelector("span").textContent =
-    `กำลังเปิด Google Drive สำหรับ ${platformLabels[platform]}...`;
+    `กำลังเปิดไฟล์ดาวน์โหลดสำหรับ ${platformLabels[platform]}...`;
   toast.classList.add("visible");
 
   window.setTimeout(() => {
