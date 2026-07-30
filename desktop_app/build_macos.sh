@@ -5,7 +5,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-APP_VERSION="${STAMPBOX_VERSION:-1.0.1}"
+APP_VERSION="${STAMPBOX_VERSION:-1.0.2}"
 EXPECTED_ARCH="${STAMPBOX_TARGET_ARCH:-$(uname -m)}"
 if [[ ! -d ".venv-desktop" ]]; then
   "$PYTHON_BIN" -m venv .venv-desktop
@@ -30,7 +30,7 @@ fi
 # PyInstaller signs every collected binary and the final bundle. Re-signing an
 # ad-hoc build with hardened runtime breaks Python framework library validation.
 codesign --verify --deep --strict --verbose=2 dist/StampBOX.app
-STAMPBOX_SMOKE_TEST=1 "$APP_EXECUTABLE"
+STAMPBOX_SMOKE_TEST=1 STAMPBOX_MAPPING_OFFLINE=1 "$APP_EXECUTABLE"
 
 DMG_STAGE="$(mktemp -d "${TMPDIR:-/tmp}/stampbox-dmg.XXXXXX")"
 VERIFY_MOUNT="$(mktemp -d "${TMPDIR:-/tmp}/stampbox-verify.XXXXXX")"
@@ -57,7 +57,8 @@ hdiutil create \
 hdiutil attach -nobrowse -readonly -mountpoint "$VERIFY_MOUNT" "$DMG_PATH" >/dev/null
 DMG_ATTACHED=1
 codesign --verify --deep --strict --verbose=2 "$VERIFY_MOUNT/StampBOX.app"
-STAMPBOX_SMOKE_TEST=1 "$VERIFY_MOUNT/StampBOX.app/Contents/MacOS/StampBOX"
+STAMPBOX_SMOKE_TEST=1 STAMPBOX_MAPPING_OFFLINE=1 \
+  "$VERIFY_MOUNT/StampBOX.app/Contents/MacOS/StampBOX"
 hdiutil detach "$VERIFY_MOUNT" >/dev/null
 DMG_ATTACHED=0
 

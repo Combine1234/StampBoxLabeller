@@ -35,7 +35,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     env:
       STAMPBOX_TARGET_ARCH: ${{ matrix.target_arch }}
-      STAMPBOX_VERSION: "1.0.1"
+      STAMPBOX_VERSION: "1.0.2"
     steps:
       - name: Check out source
         uses: actions/checkout@v6
@@ -60,6 +60,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: StampBOX-macOS-${{ matrix.suffix }}
-          path: dist/StampBOX-macOS-${{ matrix.suffix }}-1.0.1.dmg
+          path: dist/StampBOX-macOS-${{ matrix.suffix }}-1.0.2.dmg
           if-no-files-found: error
           compression-level: 0

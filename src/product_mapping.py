@@ -3,13 +3,19 @@ from __future__ import annotations
 import csv
 import difflib
 import io
+import logging
 import os
 import re
+import ssl
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
-from urllib.request import urlopen
+from urllib.error import URLError
+from urllib.request import Request, urlopen
+
+import certifi
 
 DEFAULT_MAPPING_URL = (
     "https://docs.google.com/spreadsheets/d/"
@@ -44,6 +50,7 @@ class ProductMappingMatch:
 
 
 _MAPPING_CACHE: dict[str, tuple[float, list[ProductMappingRow]]] = {}
+LOGGER = logging.getLogger(__name__)
 
 
 def google_sheet_csv_url(url: str) -> str:
@@ -55,12 +62,86 @@ def google_sheet_csv_url(url: str) -> str:
     return f"https://docs.google.com/spreadsheets/d/{match.group(1)}/export?format=csv&gid=0"
 
 
+def _runtime_root() -> Path:
+    frozen_root = getattr(sys, "_MEIPASS", None)
+    if frozen_root:
+        return Path(frozen_root)
+    return Path(__file__).resolve().parents[1]
+
+
+def _bundled_mapping_path() -> Path:
+    return _runtime_root() / "config" / "product_mapping_cache.csv"
+
+
+def _user_mapping_cache_path() -> Path:
+    override = os.environ.get("STAMPBOX_MAPPING_CACHE_FILE")
+    if override:
+        return Path(override).expanduser()
+    if sys.platform == "darwin":
+        cache_root = Path.home() / "Library" / "Caches"
+    elif sys.platform == "win32":
+        cache_root = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        cache_root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+    return cache_root / "StampBOX" / "product_mapping.csv"
+
+
+def _is_default_mapping_source(source: str) -> bool:
+    return google_sheet_csv_url(source) == google_sheet_csv_url(DEFAULT_MAPPING_URL)
+
+
+def _read_url_text(source: str) -> str:
+    request = Request(
+        google_sheet_csv_url(source),
+        headers={"User-Agent": "StampBOX/1.0"},
+    )
+    context = ssl.create_default_context(cafile=certifi.where())
+    with urlopen(request, timeout=30, context=context) as response:
+        return response.read().decode("utf-8-sig")
+
+
+def _write_user_mapping_cache(csv_text: str) -> None:
+    cache_path = _user_mapping_cache_path()
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = cache_path.with_suffix(".tmp")
+    temp_path.write_text(csv_text, encoding="utf-8")
+    temp_path.replace(cache_path)
+
+
+def _read_default_mapping_fallback() -> str:
+    for cache_path in (_user_mapping_cache_path(), _bundled_mapping_path()):
+        try:
+            if cache_path.is_file():
+                LOGGER.warning("Using cached product mapping from %s", cache_path)
+                return cache_path.read_text(encoding="utf-8-sig")
+        except OSError:
+            LOGGER.warning("Could not read product mapping cache at %s", cache_path, exc_info=True)
+    raise FileNotFoundError("No cached product mapping is available")
+
+
 def _read_text(source: str | Path) -> str:
     source_text = str(source)
-    if source_text.startswith(("http://", "https://")):
-        with urlopen(google_sheet_csv_url(source_text), timeout=30) as response:
-            return response.read().decode("utf-8-sig")
-    return Path(source).read_text(encoding="utf-8-sig")
+    if not source_text.startswith(("http://", "https://")):
+        return Path(source).read_text(encoding="utf-8-sig")
+
+    if os.environ.get("STAMPBOX_MAPPING_OFFLINE") == "1":
+        if not _is_default_mapping_source(source_text):
+            raise URLError("Product mapping offline mode is enabled")
+        return _read_default_mapping_fallback()
+
+    try:
+        csv_text = _read_url_text(source_text)
+        if _is_default_mapping_source(source_text):
+            try:
+                _write_user_mapping_cache(csv_text)
+            except OSError:
+                LOGGER.warning("Could not update the product mapping cache", exc_info=True)
+        return csv_text
+    except (OSError, TimeoutError, URLError):
+        if not _is_default_mapping_source(source_text):
+            raise
+        LOGGER.warning("Could not refresh product mapping; using cached data", exc_info=True)
+        return _read_default_mapping_fallback()
 
 
 def load_product_mapping(source: str | Path | None = None) -> list[ProductMappingRow]:

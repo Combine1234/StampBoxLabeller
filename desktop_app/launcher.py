@@ -28,12 +28,16 @@ import webview
 
 from customer_web import server as web_server
 from desktop_app.bridge import DesktopApi
+from src.product_mapping import load_product_mapping
 
 
 def run_smoke_test() -> None:
+    mapping_rows = load_product_mapping()
+    if not mapping_rows:
+        raise RuntimeError("Product mapping smoke test returned no rows")
     print(
         f"StampBOX smoke test OK: python={sys.version.split()[0]} "
-        f"machine={platform.machine()}",
+        f"machine={platform.machine()} mapping_rows={len(mapping_rows)}",
         flush=True,
     )
 
