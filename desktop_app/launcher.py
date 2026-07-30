@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import multiprocessing
 import os
+import platform
 import sys
 import threading
 from pathlib import Path
@@ -27,6 +28,14 @@ import webview
 
 from customer_web import server as web_server
 from desktop_app.bridge import DesktopApi
+
+
+def run_smoke_test() -> None:
+    print(
+        f"StampBOX smoke test OK: python={sys.version.split()[0]} "
+        f"machine={platform.machine()}",
+        flush=True,
+    )
 
 
 def main() -> None:
@@ -75,4 +84,7 @@ def main() -> None:
 
 if __name__ == "__main__":
     multiprocessing.freeze_support()
-    main()
+    if os.environ.get("STAMPBOX_SMOKE_TEST") == "1":
+        run_smoke_test()
+    else:
+        main()

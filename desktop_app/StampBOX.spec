@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import sys
 
 
@@ -6,6 +7,9 @@ ROOT = Path(SPECPATH).parent
 DESKTOP_DIR = ROOT / "desktop_app"
 WINDOWS_ICON = DESKTOP_DIR / "assets" / "StampBOX.ico"
 MACOS_ICON = DESKTOP_DIR / "assets" / "StampBOX.icns"
+APP_VERSION = os.environ.get("STAMPBOX_VERSION", "1.0.1")
+MACOS_TARGET_ARCH = os.environ.get("STAMPBOX_TARGET_ARCH") or None
+MACOS_SIGNING_IDENTITY = os.environ.get("APPLE_SIGNING_IDENTITY") or None
 
 platform_hidden_imports = []
 if sys.platform == "win32":
@@ -45,8 +49,8 @@ exe = EXE(
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
+    target_arch=MACOS_TARGET_ARCH,
+    codesign_identity=MACOS_SIGNING_IDENTITY,
     entitlements_file=None,
     icon=str(MACOS_ICON if sys.platform == "darwin" else WINDOWS_ICON),
     version=str(DESKTOP_DIR / "version_info.txt") if sys.platform == "win32" else None,
@@ -70,8 +74,8 @@ if sys.platform == "darwin":
         bundle_identifier="com.stampbox.desktop",
         info_plist={
             "CFBundleDisplayName": "StampBOX",
-            "CFBundleShortVersionString": "1.0.0",
-            "CFBundleVersion": "1.0.0",
+            "CFBundleShortVersionString": APP_VERSION,
+            "CFBundleVersion": APP_VERSION,
             "LSMinimumSystemVersion": "11.0",
             "NSHighResolutionCapable": True,
         },
