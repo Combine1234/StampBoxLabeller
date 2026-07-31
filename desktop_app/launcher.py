@@ -25,9 +25,11 @@ os.environ.setdefault("STAMPBOX_MAX_UPLOAD_MB", "250")
 os.environ.setdefault("STAMPBOX_JOB_RETENTION_SECONDS", "3600")
 
 import webview
+import fitz
 
 from customer_web import server as web_server
 from desktop_app.bridge import DesktopApi
+from src.overlay_writer import locate_font, write_overlay
 from src.product_mapping import load_product_mapping
 
 
@@ -35,9 +37,40 @@ def run_smoke_test() -> None:
     mapping_rows = load_product_mapping()
     if not mapping_rows:
         raise RuntimeError("Product mapping smoke test returned no rows")
+
+    font_path = locate_font()
+    if not font_path or Path(font_path).name != "AngsanaNew-Regular.ttf":
+        raise RuntimeError(f"Bundled Angsana New font was not selected: {font_path}")
+
+    doc = fitz.open()
+    try:
+        page = doc.new_page(width=400, height=160)
+        outcome = write_overlay(
+            page,
+            fitz.Rect(10, 10, 390, 150),
+            "\u0e1e\u0e34\u0e07 B \u0e2a\u0e35\u0e19\u0e49\u0e33\u0e40\u0e07\u0e34\u0e19 x2",
+            font_path,
+            font_sizes=[28],
+            quantity_color_gt=1,
+            quantity_color=(1, 0, 0),
+        )
+        if outcome.get("status") != "WRITTEN":
+            raise RuntimeError(f"Angsana New render smoke test failed: {outcome}")
+        colors = {
+            span["color"]
+            for block in page.get_text("dict")["blocks"]
+            for line in block.get("lines", [])
+            for span in line.get("spans", [])
+        }
+        if 0xFF0000 not in colors:
+            raise RuntimeError("Quantity color smoke test did not render red text")
+    finally:
+        doc.close()
+
     print(
         f"StampBOX smoke test OK: python={sys.version.split()[0]} "
-        f"machine={platform.machine()} mapping_rows={len(mapping_rows)}",
+        f"machine={platform.machine()} mapping_rows={len(mapping_rows)} "
+        f"font={Path(font_path).name}",
         flush=True,
     )
 

@@ -5,7 +5,7 @@ PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-APP_VERSION="${STAMPBOX_VERSION:-1.0.2}"
+APP_VERSION="${STAMPBOX_VERSION:-1.0.3}"
 EXPECTED_ARCH="${STAMPBOX_TARGET_ARCH:-$(uname -m)}"
 if [[ ! -d ".venv-desktop" ]]; then
   "$PYTHON_BIN" -m venv .venv-desktop

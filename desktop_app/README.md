@@ -25,7 +25,7 @@ Downloads/StampBOX
 
 ```text
 D:\StampBOXDesktopBuild\dist\StampBOX\StampBOX.exe
-D:\StampBOXDesktopBuild\dist\installer\StampBOX-Setup-1.0.0.exe
+D:\StampBOXDesktopBuild\dist\installer\StampBOX-Setup-1.0.3.exe
 ```
 
 สคริปต์เลือกไดรฟ์ `D:` สำหรับไฟล์ build, cache และ temp โดยอัตโนมัติ
@@ -46,7 +46,7 @@ chmod +x desktop_app/build_macos.sh
 
 ```text
 dist/StampBOX.app
-dist/StampBOX-macOS-1.0.0.dmg
+dist/StampBOX-macOS-1.0.3.dmg
 ```
 
 ถ้าไม่มีเครื่อง Mac ให้ push โค้ดขึ้น GitHub แล้วไปที่แท็บ **Actions** เลือก

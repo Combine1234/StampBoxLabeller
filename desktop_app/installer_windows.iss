@@ -1,5 +1,9 @@
 #define AppName "StampBOX"
-#define AppVersion "1.0.0"
+#if GetEnv("STAMPBOX_VERSION") == ""
+  #define AppVersion "1.0.3"
+#else
+  #define AppVersion GetEnv("STAMPBOX_VERSION")
+#endif
 #define AppPublisher "StampBOX"
 #define AppExeName "StampBOX.exe"
 #ifndef BuildRoot

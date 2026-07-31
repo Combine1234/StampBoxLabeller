@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.overlay_writer import _quantity_tokens, _quantity_value
+from src.overlay_writer import _html_overlay_text, _quantity_tokens, _quantity_value, locate_font
 
 
 def test_quantity_value() -> None:
@@ -15,3 +15,18 @@ def test_quantity_tokens_support_compact_and_bundle_lines() -> None:
 
     assert [quantity for _start, _end, quantity in _quantity_tokens(compact)] == [1, 2, 3]
     assert [quantity for _start, _end, quantity in _quantity_tokens(bundle)] == [2, 4]
+
+
+def test_quantity_greater_than_one_is_highlighted_without_underline() -> None:
+    html = _html_overlay_text("แฟนซี ฟ้า 1 / เขียว 2\nพิง B สีน้ำเงิน x5", 1)
+
+    assert "แฟนซี ฟ้า 1 / เขียว <span class=\"qty-highlight\">2</span>" in html
+    assert "x<span class=\"qty-highlight\">5</span>" in html
+    assert "underline" not in html
+
+
+def test_bundled_angsana_new_is_the_default_font() -> None:
+    font_path = locate_font()
+
+    assert font_path is not None
+    assert font_path.endswith("AngsanaNew-Regular.ttf")

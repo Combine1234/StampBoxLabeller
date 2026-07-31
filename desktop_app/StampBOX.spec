@@ -7,7 +7,7 @@ ROOT = Path(SPECPATH).parent
 DESKTOP_DIR = ROOT / "desktop_app"
 WINDOWS_ICON = DESKTOP_DIR / "assets" / "StampBOX.ico"
 MACOS_ICON = DESKTOP_DIR / "assets" / "StampBOX.icns"
-APP_VERSION = os.environ.get("STAMPBOX_VERSION", "1.0.2")
+APP_VERSION = os.environ.get("STAMPBOX_VERSION", "1.0.3")
 MACOS_TARGET_ARCH = os.environ.get("STAMPBOX_TARGET_ARCH") or None
 MACOS_SIGNING_IDENTITY = os.environ.get("APPLE_SIGNING_IDENTITY") or None
 

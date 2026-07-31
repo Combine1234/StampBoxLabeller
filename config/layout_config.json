@@ -11,15 +11,15 @@
     "footer_top_ratio": 0.91
   },
   "text": {
-    "font_size_max": 22.0,
-    "font_size_min": 6.0,
+    "font_size_max": 28.0,
+    "font_size_min": 8.0,
     "font_size_step": 1.0,
     "line_height": 1.25,
     "max_lines": 6,
     "align": "center",
     "color": "#0057D9",
-    "underline_color": "#FF0000",
-    "underline_quantity_gt": 1
+    "quantity_color": "#FF0000",
+    "quantity_color_gt": 1
   },
   "safety": {
     "margin": 4.0,

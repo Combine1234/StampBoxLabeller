@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
+$AppVersion = if ($env:STAMPBOX_VERSION) { $env:STAMPBOX_VERSION } else { "1.0.3" }
 
 function Assert-LastCommand {
     param([string]$Step)
@@ -50,9 +51,9 @@ $Iscc = $IsccCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Objec
 if ($Iscc) {
     & $Iscc "/DBuildRoot=$DistRoot" .\desktop_app\installer_windows.iss
     Assert-LastCommand "Building Windows installer"
-    Write-Host "Installer: $DistRoot\installer\StampBOX-Setup-1.0.0.exe"
+    Write-Host "Installer: $DistRoot\installer\StampBOX-Setup-$AppVersion.exe"
 } else {
-    $ZipPath = Join-Path $DistRoot "StampBOX-Windows-Portable-1.0.0.zip"
+    $ZipPath = Join-Path $DistRoot "StampBOX-Windows-Portable-$AppVersion.zip"
     Compress-Archive -Path (Join-Path $DistRoot "StampBOX\*") -DestinationPath $ZipPath -Force
     Write-Warning "Inno Setup was not found. A portable ZIP was created instead."
     Write-Host "Portable app: $ZipPath"

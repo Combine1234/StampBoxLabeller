@@ -31,11 +31,13 @@ from .validator import (
 LOGGER = logging.getLogger(__name__)
 
 WINDOWS_FONT_CANDIDATES = (
+    r"C:\Windows\Fonts\angsana.ttc",
     r"C:\Windows\Fonts\LeelawUI.ttf",
     r"C:\Windows\Fonts\leelawad.ttf",
     r"C:\Windows\Fonts\tahoma.ttf",
 )
 PROJECT_FONT_CANDIDATES = (
+    Path("assets/fonts/AngsanaNew-Regular.ttf"),
     Path("assets/fonts/NotoSansThai-SemiBold.ttf"),
     Path("assets/fonts/Sarabun-Regular.ttf"),
     Path("assets/fonts/NotoSansThai-Regular.ttf"),
@@ -119,43 +121,13 @@ def _quantity_tokens(line: str) -> list[tuple[int, int, int]]:
     return tokens
 
 
-def _draw_quantity_underlines(
-    page: fitz.Page,
-    rect: fitz.Rect,
-    text: str,
-    font: fitz.Font,
-    font_size: float,
-    line_height: float,
-    align: int,
-    color: tuple[float, float, float],
-    underline_quantity_gt: int,
-) -> None:
-    line_step = font_size * line_height
-    baseline_y = rect.y0 + font_size
-    for index, line in enumerate(text.splitlines()):
-        line_x = _line_x(rect, line, font, font_size, align)
-        y = baseline_y + (index * line_step) + 1.5
-        for start, end, quantity in _quantity_tokens(line):
-            if quantity <= underline_quantity_gt:
-                continue
-            x0 = line_x + _line_width(line[:start], font, font_size)
-            x1 = x0 + _line_width(line[start:end], font, font_size)
-            page.draw_line(
-                (x0, y),
-                (x1, y),
-                color=color,
-                width=max(font_size * 0.08, 1.0),
-                overlay=True,
-            )
-
-
-def _html_overlay_text(text: str, underline_quantity_gt: int | None) -> str:
+def _html_overlay_text(text: str, quantity_color_gt: int | None) -> str:
     html_lines: list[str] = []
     for line in text.splitlines():
         tokens = [
             (start, end)
             for start, end, quantity in _quantity_tokens(line)
-            if underline_quantity_gt is not None and quantity > underline_quantity_gt
+            if quantity_color_gt is not None and quantity > quantity_color_gt
         ]
         if not tokens:
             html_lines.append(f'<div class="line">{escape(line)}</div>')
@@ -165,7 +137,7 @@ def _html_overlay_text(text: str, underline_quantity_gt: int | None) -> str:
         cursor = 0
         for start, end in tokens:
             fragments.append(escape(line[cursor:start]))
-            fragments.append(f'<span class="qty-underline">{escape(line[start:end])}</span>')
+            fragments.append(f'<span class="qty-highlight">{escape(line[start:end])}</span>')
             cursor = end
         fragments.extend((escape(line[cursor:]), "</div>"))
         html_lines.append("".join(fragments))
@@ -189,8 +161,8 @@ def _insert_html_overlay(
     line_height: float,
     align: int,
     color: tuple[float, float, float],
-    underline_quantity_gt: int | None,
-    underline_color: tuple[float, float, float] | None,
+    quantity_color_gt: int | None,
+    quantity_color: tuple[float, float, float] | None,
 ) -> tuple[float, float]:
     font_file = Path(font_path)
     font_weight = 600 if "semibold" in font_file.stem.casefold() else 400
@@ -214,10 +186,13 @@ def _insert_html_overlay(
     .line {{
         white-space: nowrap;
     }}
+    .qty-highlight {{
+        color: {_rgb_to_hex(quantity_color or color)};
+    }}
     """
     return page.insert_htmlbox(
         rect,
-        f"<body>{_html_overlay_text(text, underline_quantity_gt)}</body>",
+        f"<body>{_html_overlay_text(text, quantity_color_gt)}</body>",
         css=css,
         archive=archive,
         scale_low=1,
@@ -234,8 +209,8 @@ def write_overlay(
     line_height: float = 1.1,
     align: int = fitz.TEXT_ALIGN_LEFT,
     color: tuple[float, float, float] = (0, 0, 0),
-    underline_quantity_gt: int | None = None,
-    underline_color: tuple[float, float, float] | None = None,
+    quantity_color_gt: int | None = None,
+    quantity_color: tuple[float, float, float] | None = None,
 ) -> dict[str, Any]:
     if not text.strip():
         return {"status": STATUS_FAILED, "message": "Overlay text is empty"}
@@ -258,22 +233,10 @@ def write_overlay(
             line_height,
             align,
             color,
-            underline_quantity_gt,
-            underline_color,
+            quantity_color_gt,
+            quantity_color,
         )
         if remaining_height >= 0:
-            if underline_quantity_gt is not None:
-                _draw_quantity_underlines(
-                    page,
-                    rect,
-                    text,
-                    font,
-                    size,
-                    line_height,
-                    align,
-                    underline_color or color,
-                    underline_quantity_gt,
-                )
             return {
                 "status": STATUS_WRITTEN,
                 "message": "Success",
@@ -300,22 +263,10 @@ def write_overlay(
                 dense_line_height,
                 align,
                 color,
-                underline_quantity_gt,
-                underline_color,
+                quantity_color_gt,
+                quantity_color,
             )
             if remaining_height >= 0:
-                if underline_quantity_gt is not None:
-                    _draw_quantity_underlines(
-                        page,
-                        rect,
-                        text,
-                        font,
-                        size,
-                        dense_line_height,
-                        align,
-                        underline_color or color,
-                        underline_quantity_gt,
-                    )
                 return {
                     "status": STATUS_WRITTEN,
                     "message": "Success",
@@ -386,8 +337,12 @@ def create_output_pdf(
     align_name = str(config["text"].get("align", "left")).lower()
     align = fitz.TEXT_ALIGN_CENTER if align_name == "center" else fitz.TEXT_ALIGN_LEFT
     text_color = _hex_color_to_rgb(config["text"].get("color", "#000000"))
-    underline_color = _hex_color_to_rgb(config["text"].get("underline_color", "#FF0000"))
-    underline_quantity_gt = config["text"].get("underline_quantity_gt")
+    quantity_color = _hex_color_to_rgb(
+        config["text"].get("quantity_color", config["text"].get("underline_color", "#FF0000"))
+    )
+    quantity_color_gt = config["text"].get(
+        "quantity_color_gt", config["text"].get("underline_quantity_gt")
+    )
 
     doc = fitz.open(input_pdf)
     try:
@@ -433,10 +388,10 @@ def create_output_pdf(
                             line_height=line_height,
                             align=align,
                             color=text_color,
-                            underline_quantity_gt=int(underline_quantity_gt)
-                            if underline_quantity_gt is not None
+                            quantity_color_gt=int(quantity_color_gt)
+                            if quantity_color_gt is not None
                             else None,
-                            underline_color=underline_color,
+                            quantity_color=quantity_color,
                         )
                         status = str(outcome["status"])
                         message = str(outcome.get("message", ""))
