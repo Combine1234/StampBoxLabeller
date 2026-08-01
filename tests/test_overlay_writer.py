@@ -16,12 +16,17 @@ def test_quantity_tokens_support_compact_and_bundle_lines() -> None:
     assert [quantity for _start, _end, quantity in _quantity_tokens(compact)] == [1, 2, 3]
     assert [quantity for _start, _end, quantity in _quantity_tokens(bundle)] == [2, 4]
 
+    x_line = "BAR BLACK x12"
+    start, end, quantity = _quantity_tokens(x_line)[0]
+    assert x_line[start:end] == "x12"
+    assert quantity == 12
+
 
 def test_quantity_greater_than_one_is_highlighted_without_underline() -> None:
     html = _html_overlay_text("แฟนซี ฟ้า 1 / เขียว 2\nพิง B สีน้ำเงิน x5", 1)
 
     assert "แฟนซี ฟ้า 1 / เขียว <span class=\"qty-highlight\">2</span>" in html
-    assert "x<span class=\"qty-highlight\">5</span>" in html
+    assert "<span class=\"qty-highlight\">x5</span>" in html
     assert "underline" not in html
 
 

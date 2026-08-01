@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  STAMPBOX_VERSION: "1.0.3"
+  STAMPBOX_VERSION: "1.0.4"
 
 jobs:
   macos:
@@ -62,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: StampBOX-macOS-${{ matrix.suffix }}
-          path: dist/StampBOX-macOS-${{ matrix.suffix }}-1.0.3.dmg
+          path: dist/StampBOX-macOS-${{ matrix.suffix }}-1.0.4.dmg
           if-no-files-found: error
           compression-level: 0
 
@@ -99,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: StampBOX-Windows-x64
-          path: D:\StampBOXDesktopBuild\dist\installer\StampBOX-Setup-1.0.3.exe
+          path: D:\StampBOXDesktopBuild\dist\installer\StampBOX-Setup-1.0.4.exe
           if-no-files-found: error
           compression-level: 0
 
@@ -138,6 +138,6 @@ jobs:
               "$WINDOWS_EXE#StampBOX for Windows 10-11" \
               --target "$GITHUB_SHA" \
               --title "StampBOX Desktop ${STAMPBOX_VERSION}" \
-              --notes "Uses Angsana New for PDF labels and shows quantities greater than one in red instead of underlining them. Windows and both macOS installers passed packaged-app smoke checks." \
+              --notes "Uses Angsana New for PDF labels and shows the full xN quantity marker in red when the quantity is greater than one. Windows and both macOS installers passed packaged-app smoke checks." \
               --repo "$GITHUB_REPOSITORY"
           fi

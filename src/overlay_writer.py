@@ -116,7 +116,7 @@ def _quantity_tokens(line: str) -> list[tuple[int, int, int]]:
     )
     for match in pattern.finditer(line):
         group_name = "x_quantity" if match.group("x_quantity") else "plain_quantity"
-        start, end = match.span(group_name)
+        start, end = match.span(0) if group_name == "x_quantity" else match.span(group_name)
         tokens.append((start, end, int(match.group(group_name))))
     return tokens
 
