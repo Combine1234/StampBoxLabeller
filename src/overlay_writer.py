@@ -110,14 +110,10 @@ def _quantity_value(line: str) -> int | None:
 
 def _quantity_tokens(line: str) -> list[tuple[int, int, int]]:
     tokens: list[tuple[int, int, int]] = []
-    pattern = re.compile(
-        r"\bx\s*(?P<x_quantity>\d+)|(?<![\w])(?P<plain_quantity>\d+)(?=\s*(?:/|$))",
-        flags=re.IGNORECASE,
-    )
+    pattern = re.compile(r"\bx\s*(?P<quantity>\d+)", flags=re.IGNORECASE)
     for match in pattern.finditer(line):
-        group_name = "x_quantity" if match.group("x_quantity") else "plain_quantity"
-        start, end = match.span(0) if group_name == "x_quantity" else match.span(group_name)
-        tokens.append((start, end, int(match.group(group_name))))
+        start, end = match.span(0)
+        tokens.append((start, end, int(match.group("quantity"))))
     return tokens
 
 

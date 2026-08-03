@@ -9,12 +9,12 @@ def test_quantity_value() -> None:
     assert _quantity_value("ไม่มีจำนวน") is None
 
 
-def test_quantity_tokens_support_compact_and_bundle_lines() -> None:
+def test_quantity_tokens_only_match_x_prefixed_quantities() -> None:
     compact = "แฟนซี ฟ้า 1 / เขียว 2 / เหลือง 3"
     bundle = "ชมพู: โต๊ะกลาง 2 / เก้าอี้สบาย 4"
 
-    assert [quantity for _start, _end, quantity in _quantity_tokens(compact)] == [1, 2, 3]
-    assert [quantity for _start, _end, quantity in _quantity_tokens(bundle)] == [2, 4]
+    assert _quantity_tokens(compact) == []
+    assert _quantity_tokens(bundle) == []
 
     x_line = "BAR BLACK x12"
     start, end, quantity = _quantity_tokens(x_line)[0]
@@ -23,10 +23,11 @@ def test_quantity_tokens_support_compact_and_bundle_lines() -> None:
 
 
 def test_quantity_greater_than_one_is_highlighted_without_underline() -> None:
-    html = _html_overlay_text("แฟนซี ฟ้า 1 / เขียว 2\nพิง B สีน้ำเงิน x5", 1)
+    html = _html_overlay_text("2/2 ลายบลูบรัช x1\nพิง B สีน้ำเงิน x5", 1)
 
-    assert "แฟนซี ฟ้า 1 / เขียว <span class=\"qty-highlight\">2</span>" in html
+    assert '<div class="line">2/2 ลายบลูบรัช x1</div>' in html
     assert "<span class=\"qty-highlight\">x5</span>" in html
+    assert "<span class=\"qty-highlight\">2</span>/2" not in html
     assert "underline" not in html
 
 

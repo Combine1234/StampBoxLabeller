@@ -1,6 +1,6 @@
 #define AppName "StampBOX"
 #if GetEnv("STAMPBOX_VERSION") == ""
-  #define AppVersion "1.0.4"
+  #define AppVersion "1.0.5"
 #else
   #define AppVersion GetEnv("STAMPBOX_VERSION")
 #endif
