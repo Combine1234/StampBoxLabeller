@@ -9,9 +9,9 @@ import re
 import ssl
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -22,6 +22,11 @@ DEFAULT_MAPPING_URL = (
     "1Tyggl_WZdE0poWozkw4vW8J7BxmsWk1mVvAbmJUQtq8"
     "/export?format=csv&gid=0"
 )
+DEFAULT_MAPPING_SHEETS = (
+    ("Sheet1", "0"),
+    ("Sheet2", "798807419"),
+    ("so goods", "99385586"),
+)
 
 PRODUCT_HEADER = "\u0e0a\u0e37\u0e48\u0e2d\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32"
 VARIANT_HEADER = "\u0e15\u0e31\u0e27\u0e40\u0e25\u0e37\u0e2d\u0e01\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32"
@@ -29,6 +34,8 @@ CODE_HEADER = (
     "\u0e42\u0e04\u0e49\u0e14\u0e0a\u0e37\u0e48\u0e2d"
     "\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32 + \u0e2a\u0e35"
 )
+CODE_NAME_HEADER = "\u0e42\u0e04\u0e49\u0e14\u0e0a\u0e37\u0e48\u0e2d\u0e2a\u0e34\u0e19\u0e04\u0e49\u0e32"
+COLOR_HEADER = "\u0e2a\u0e35"
 
 
 @dataclass(slots=True)
@@ -60,6 +67,20 @@ def google_sheet_csv_url(url: str) -> str:
     if not match:
         return url
     return f"https://docs.google.com/spreadsheets/d/{match.group(1)}/export?format=csv&gid=0"
+
+
+def default_mapping_tab_urls(url: str = DEFAULT_MAPPING_URL) -> list[tuple[str, str]]:
+    match = re.search(r"/spreadsheets/d/([^/]+)", url)
+    if not match:
+        return [("mapping", google_sheet_csv_url(url))]
+    spreadsheet_id = match.group(1)
+    return [
+        (
+            sheet_name,
+            f"https://docs.google.com/spreadsheets/d/{spreadsheet_id}/export?format=csv&gid={gid}",
+        )
+        for sheet_name, gid in DEFAULT_MAPPING_SHEETS
+    ]
 
 
 def _runtime_root() -> Path:
@@ -100,6 +121,19 @@ def _read_url_text(source: str) -> str:
         return response.read().decode("utf-8-sig")
 
 
+def _read_default_mapping_text(source: str) -> str:
+    tab_urls = default_mapping_tab_urls(source)
+    with ThreadPoolExecutor(max_workers=len(tab_urls)) as executor:
+        csv_texts = list(executor.map(lambda item: _read_url_text(item[1]), tab_urls))
+
+    merged_rows: list[ProductMappingRow] = []
+    for (sheet_name, _url), csv_text in zip(tab_urls, csv_texts):
+        sheet_rows = _parse_mapping_csv(csv_text)
+        LOGGER.info("Loaded %d product mappings from %s", len(sheet_rows), sheet_name)
+        merged_rows.extend(sheet_rows)
+    return _mapping_rows_to_csv(_deduplicate_mapping_rows(merged_rows))
+
+
 def _write_user_mapping_cache(csv_text: str) -> None:
     cache_path = _user_mapping_cache_path()
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -130,7 +164,11 @@ def _read_text(source: str | Path) -> str:
         return _read_default_mapping_fallback()
 
     try:
-        csv_text = _read_url_text(source_text)
+        csv_text = (
+            _read_default_mapping_text(source_text)
+            if _is_default_mapping_source(source_text)
+            else _read_url_text(source_text)
+        )
         if _is_default_mapping_source(source_text):
             try:
                 _write_user_mapping_cache(csv_text)
@@ -152,45 +190,97 @@ def load_product_mapping(source: str | Path | None = None) -> list[ProductMappin
         if time.monotonic() - cached_at <= cache_seconds:
             return cached_rows
 
-    csv_text = _read_text(source_key)
-    reader = csv.DictReader(io.StringIO(csv_text))
-    if not reader.fieldnames:
-        return []
-
-    fieldnames = [field.strip() for field in reader.fieldnames]
-    product_key = _find_header(fieldnames, [PRODUCT_HEADER], fallback_index=0)
-    variant_key = _find_header(fieldnames, [VARIANT_HEADER], fallback_index=2)
-    code_key = _find_header(fieldnames, [CODE_HEADER], fallback_index=2)
-
-    rows: list[ProductMappingRow] = []
-    for raw in reader:
-        product_name = str(raw.get(product_key, "") or "").strip()
-        variant = str(raw.get(variant_key, "") or "").strip()
-        code = str(raw.get(code_key, "") or "").strip()
-        if product_name and code:
-            row_text = " ".join(str(value or "") for value in raw.values())
-            rows.append(
-                ProductMappingRow(
-                    product_name=product_name,
-                    variant=variant,
-                    code=code,
-                    row_text=row_text,
-                    product_norm=normalize_match_text(product_name),
-                    variant_norm=normalize_match_text(variant),
-                    row_norm=normalize_match_text(row_text),
-                )
-            )
+    rows = _parse_mapping_csv(_read_text(source_key))
     if cache_seconds > 0:
         _MAPPING_CACHE[source_key] = (time.monotonic(), rows)
     return rows
 
 
-def _find_header(fieldnames: list[str], candidates: Iterable[str], fallback_index: int) -> str:
-    normalized_candidates = {_normalize_header(candidate) for candidate in candidates}
-    for field in fieldnames:
-        if _normalize_header(field) in normalized_candidates:
-            return field
-    return fieldnames[min(fallback_index, len(fieldnames) - 1)]
+def _parse_mapping_csv(csv_text: str) -> list[ProductMappingRow]:
+    raw_rows = [
+        [str(value or "").strip() for value in row]
+        for row in csv.reader(io.StringIO(csv_text))
+    ]
+    nonempty_rows = [row for row in raw_rows if any(row)]
+    if not nonempty_rows:
+        return []
+
+    header = nonempty_rows[0]
+    normalized_header = [_normalize_header(value) for value in header]
+    has_header = _normalize_header(PRODUCT_HEADER) in normalized_header
+    data_rows = nonempty_rows[1:] if has_header else nonempty_rows
+
+    if has_header:
+        product_index = normalized_header.index(_normalize_header(PRODUCT_HEADER))
+        variant_index = _header_index(normalized_header, VARIANT_HEADER)
+        combined_code_index = _header_index(normalized_header, CODE_HEADER)
+        code_name_index = _header_index(normalized_header, CODE_NAME_HEADER)
+        color_index = _header_index(normalized_header, COLOR_HEADER)
+    else:
+        product_index = 0
+        variant_index = 2
+        combined_code_index = None
+        code_name_index = 3
+        color_index = 4
+
+    rows: list[ProductMappingRow] = []
+    for raw in data_rows:
+        product_name = _cell(raw, product_index)
+        variant = _cell(raw, variant_index)
+        code = _cell(raw, combined_code_index)
+        if not code:
+            code = " ".join(
+                value
+                for value in (_cell(raw, code_name_index), _cell(raw, color_index))
+                if value
+            )
+        if not product_name or not code:
+            continue
+        row_text = " ".join(value for value in raw if value)
+        rows.append(
+            ProductMappingRow(
+                product_name=product_name,
+                variant=variant,
+                code=code,
+                row_text=row_text,
+                product_norm=normalize_match_text(product_name),
+                variant_norm=normalize_match_text(variant),
+                row_norm=normalize_match_text(row_text),
+            )
+        )
+    return rows
+
+
+def _header_index(normalized_header: list[str], header: str) -> int | None:
+    normalized = _normalize_header(header)
+    return normalized_header.index(normalized) if normalized in normalized_header else None
+
+
+def _cell(row: list[str], index: int | None) -> str:
+    if index is None or index < 0 or index >= len(row):
+        return ""
+    return row[index].strip()
+
+
+def _deduplicate_mapping_rows(rows: list[ProductMappingRow]) -> list[ProductMappingRow]:
+    deduplicated: list[ProductMappingRow] = []
+    seen: set[tuple[str, str, str]] = set()
+    for row in rows:
+        key = (row.product_norm, row.variant_norm, normalize_match_text(row.code))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduplicated.append(row)
+    return deduplicated
+
+
+def _mapping_rows_to_csv(rows: list[ProductMappingRow]) -> str:
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, lineterminator="\n")
+    writer.writerow([PRODUCT_HEADER, VARIANT_HEADER, CODE_HEADER])
+    for row in rows:
+        writer.writerow([row.product_name, row.variant, row.code])
+    return output.getvalue()
 
 
 def _normalize_header(value: str) -> str:

@@ -18,7 +18,7 @@ permissions:
   contents: read
 
 env:
-  STAMPBOX_VERSION: "1.0.5"
+  STAMPBOX_VERSION: "1.0.6"
 
 jobs:
   macos:
@@ -62,7 +62,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: StampBOX-macOS-${{ matrix.suffix }}
-          path: dist/StampBOX-macOS-${{ matrix.suffix }}-1.0.5.dmg
+          path: dist/StampBOX-macOS-${{ matrix.suffix }}-1.0.6.dmg
           if-no-files-found: error
           compression-level: 0
 
@@ -99,7 +99,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: StampBOX-Windows-x64
-          path: D:\StampBOXDesktopBuild\dist\installer\StampBOX-Setup-1.0.5.exe
+          path: D:\StampBOXDesktopBuild\dist\installer\StampBOX-Setup-1.0.6.exe
           if-no-files-found: error
           compression-level: 0
 
@@ -138,6 +138,6 @@ jobs:
               "$WINDOWS_EXE#StampBOX for Windows 10-11" \
               --target "$GITHUB_SHA" \
               --title "StampBOX Desktop ${STAMPBOX_VERSION}" \
-              --notes "Highlights only x-prefixed quantities greater than one in red, so product text such as 2/2 remains blue. Windows and both macOS installers passed packaged-app smoke checks." \
+              --notes "Merges product mappings from Sheet1, Sheet2, and so goods, including headerless tabs and separate product-code/color columns. Windows and both macOS installers passed packaged-app smoke checks." \
               --repo "$GITHUB_REPOSITORY"
           fi

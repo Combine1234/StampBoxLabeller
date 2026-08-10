@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
-$AppVersion = if ($env:STAMPBOX_VERSION) { $env:STAMPBOX_VERSION } else { "1.0.5" }
+$AppVersion = if ($env:STAMPBOX_VERSION) { $env:STAMPBOX_VERSION } else { "1.0.6" }
 
 function Assert-LastCommand {
     param([string]$Step)
