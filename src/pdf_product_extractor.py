@@ -12,6 +12,7 @@ from .pdf_reader import (
     extract_label_text,
     extract_order_no,
     extract_tracking_no,
+    extract_tracking_no_from_text,
     split_page_into_labels,
 )
 from .product_mapping import DEFAULT_MAPPING_URL, find_product_code, load_product_mapping
@@ -106,20 +107,32 @@ def _product_section(lines: list[str], order_no: str | None) -> list[str]:
 
 def _split_item_segments(section: list[str]) -> list[list[str]]:
     items: list[list[str]] = []
-    index = 0
+    try:
+        item_start = section.index("1")
+    except ValueError:
+        return items
+
     expected = 1
-    while index < len(section):
-        if section[index] == str(expected):
-            index += 1
-            segment: list[str] = []
-            while index < len(section) and section[index] != str(expected + 1):
-                segment.append(section[index])
-                index += 1
-            if segment:
-                items.append(segment)
-                expected += 1
-        else:
-            index += 1
+    while item_start < len(section):
+        next_item = str(expected + 1)
+        boundary: int | None = None
+        for candidate in range(item_start + 2, len(section)):
+            if section[candidate] != next_item:
+                continue
+            # A row number follows the previous row's numeric quantity.
+            # This prevents a quantity of 2 from being treated as item 2.
+            if _is_int(section[candidate - 1]):
+                boundary = candidate
+                break
+
+        segment_end = boundary if boundary is not None else len(section)
+        segment = section[item_start + 1 : segment_end]
+        if segment:
+            items.append(segment)
+        if boundary is None:
+            break
+        item_start = boundary
+        expected += 1
     return items
 
 
@@ -218,7 +231,7 @@ def build_rows_from_pdf(
             for label_index, label_rect in enumerate(labels, start=1):
                 text = extract_label_text(page, label_rect)
                 order_no = extract_order_no(text) or ""
-                tracking_no = extract_tracking_no(page, label_rect) or ""
+                tracking_no = extract_tracking_no_from_text(text) or extract_tracking_no(page, label_rect) or ""
                 for item_index, item in enumerate(
                     extract_items_from_label_text(text, order_no=order_no),
                     start=1,
@@ -231,9 +244,9 @@ def build_rows_from_pdf(
                         product_code = mapping_match.code
                         note = f"mapped score={mapping_match.score:.2f}"
                     else:
-                        product_code = f"(map \u0e44\u0e21\u0e48\u0e1e\u0e1a) {fallback_code}"
+                        product_code = ""
                         score = mapping_match.score if mapping_match else 0.0
-                        note = f"map_not_found fallback score={score:.2f}"
+                        note = f"map_not_found fallback={fallback_code} score={score:.2f}"
                     rows.append(
                         {
                             "order_no": order_no,

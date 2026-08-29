@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+import multiprocessing
+import os
+import platform
+import sys
+import threading
+from pathlib import Path
+
+
+def resource_root() -> Path:
+    frozen_root = getattr(sys, "_MEIPASS", None)
+    if frozen_root:
+        return Path(frozen_root)
+    return Path(__file__).resolve().parents[1]
+
+
+ROOT = resource_root()
+os.chdir(ROOT)
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+# Desktop files stay on the local machine, so larger batches are safe here.
+os.environ.setdefault("STAMPBOX_MAX_UPLOAD_MB", "250")
+os.environ.setdefault("STAMPBOX_JOB_RETENTION_SECONDS", "3600")
+
+import webview
+import fitz
+
+from customer_web import server as web_server
+from desktop_app.bridge import DesktopApi
+from src.overlay_writer import locate_font, write_overlay
+from src.product_mapping import load_product_mapping
+
+
+def run_smoke_test() -> None:
+    mapping_rows = load_product_mapping()
+    if not mapping_rows:
+        raise RuntimeError("Product mapping smoke test returned no rows")
+
+    font_path = locate_font()
+    if not font_path or Path(font_path).name != "AngsanaNew-Regular.ttf":
+        raise RuntimeError(f"Bundled Angsana New font was not selected: {font_path}")
+
+    doc = fitz.open()
+    try:
+        page = doc.new_page(width=400, height=160)
+        outcome = write_overlay(
+            page,
+            fitz.Rect(10, 10, 390, 150),
+            "\u0e1e\u0e34\u0e07 B \u0e2a\u0e35\u0e19\u0e49\u0e33\u0e40\u0e07\u0e34\u0e19 x2",
+            font_path,
+            font_sizes=[28],
+            quantity_color_gt=1,
+            quantity_color=(1, 0, 0),
+        )
+        if outcome.get("status") != "WRITTEN":
+            raise RuntimeError(f"Angsana New render smoke test failed: {outcome}")
+        colors = {
+            span["color"]
+            for block in page.get_text("dict")["blocks"]
+            for line in block.get("lines", [])
+            for span in line.get("spans", [])
+        }
+        if 0xFF0000 not in colors:
+            raise RuntimeError("Quantity color smoke test did not render red text")
+    finally:
+        doc.close()
+
+    print(
+        f"StampBOX smoke test OK: python={sys.version.split()[0]} "
+        f"machine={platform.machine()} mapping_rows={len(mapping_rows)} "
+        f"font={Path(font_path).name}",
+        flush=True,
+    )
+
+
+def main() -> None:
+    web_server.STATIC_DIR = ROOT / "desktop_app" / "static"
+    server = web_server.ThreadingHTTPServer(("127.0.0.1", 0), web_server.CustomerWebHandler)
+    server.daemon_threads = True
+    server_thread = threading.Thread(
+        target=server.serve_forever,
+        name="stampbox-local-server",
+        daemon=True,
+    )
+    server_thread.start()
+
+    window_holder: dict[str, object] = {}
+    api = DesktopApi(
+        web_server.JOBS,
+        web_server.JOBS_LOCK,
+        window_getter=lambda: window_holder.get("window"),
+    )
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+    window = webview.create_window(
+        "StampBOX",
+        url=url,
+        js_api=api,
+        width=1180,
+        height=820,
+        min_size=(900, 660),
+        background_color="#eef2f7",
+    )
+    window_holder["window"] = window
+
+    def shutdown() -> None:
+        server.shutdown()
+        server.server_close()
+        with web_server.JOBS_LOCK:
+            job_ids = list(web_server.JOBS)
+        for job_id in job_ids:
+            web_server._cleanup_job(job_id)
+
+    window.events.closed += shutdown
+    webview.start(
+        debug=os.environ.get("STAMPBOX_DESKTOP_DEBUG") == "1",
+        private_mode=True,
+    )
+
+
+if __name__ == "__main__":
+    multiprocessing.freeze_support()
+    if os.environ.get("STAMPBOX_SMOKE_TEST") == "1":
+        run_smoke_test()
+    else:
+        main()

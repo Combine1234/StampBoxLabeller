@@ -9,6 +9,7 @@ import streamlit as st
 
 from src.excel_reader import rows_from_dataframe
 from src.overlay_writer import analyze_pdf, create_output_pdf, locate_font
+from src.output_naming import edited_pdf_filename
 from src.pdf_product_extractor import build_rows_from_pdf
 from src.product_mapping import DEFAULT_MAPPING_URL
 from src.preview import render_page, render_page_with_report
@@ -97,6 +98,7 @@ if pdf_file:
                 st.session_state["source_rows"] = rows
                 st.session_state["report_rows"] = report_rows
                 st.session_state["output_pdf"] = output_pdf.read_bytes()
+                st.session_state["output_name"] = edited_pdf_filename(pdf_file.name)
                 st.session_state["report_xlsx"] = report_to_excel_bytes(report_rows)
                 st.session_state["preview_png"] = render_page(output_pdf, page_index=0)
         except Exception as exc:  # pragma: no cover - Streamlit surface
@@ -120,7 +122,7 @@ if st.session_state.get("output_pdf") and st.session_state.get("report_xlsx"):
         st.download_button(
             "Download PDF",
             data=st.session_state["output_pdf"],
-            file_name="labels_overlay.pdf",
+            file_name=st.session_state.get("output_name", "labels_edited.pdf"),
             mime="application/pdf",
             use_container_width=True,
         )

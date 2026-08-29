@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="ดาวน์โหลด StampBOX Desktop สำหรับ Windows และ macOS"
+    />
+    <meta name="theme-color" content="#0b0d10" />
+    <title>StampBOX Desktop | Download</title>
+    <link rel="icon" type="image/png" href="./assets/stampbox.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Sans+Thai:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="StampBOX Desktop">
+          <img src="./assets/stampbox.png" alt="" width="40" height="40" />
+          <span>StampBOX</span>
+          <span class="brand-suffix">Desktop</span>
+        </a>
+
+        <div class="build-status" aria-label="สถานะไฟล์">
+          <span class="status-dot"></span>
+          <span>BUILD READY</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="intro" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow"><span>~/downloads</span> / stampbox</p>
+            <h1 id="page-title">StampBOX Desktop</h1>
+            <p class="intro-copy">
+              เลือกเวอร์ชันสำหรับเครื่องของคุณ แล้วเริ่มดาวน์โหลดไฟล์ติดตั้งที่ผ่านการตรวจสอบ
+            </p>
+          </div>
+
+          <div class="release-panel" aria-label="ข้อมูลเวอร์ชัน">
+            <div class="release-head">
+              <span>release.json</span>
+              <span class="release-version">v1.0.7</span>
+            </div>
+            <dl>
+              <div>
+                <dt>status</dt>
+                <dd>"stable"</dd>
+              </div>
+              <div>
+                <dt>platforms</dt>
+                <dd>["windows", "macOS"]</dd>
+              </div>
+              <div>
+                <dt>source</dt>
+                <dd>"verified-release"</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section class="downloads" aria-labelledby="download-title">
+          <div class="section-heading">
+            <div>
+              <p class="section-index">01 / DOWNLOADS</p>
+              <h2 id="download-title">เลือกไฟล์ติดตั้ง</h2>
+            </div>
+            <p id="device-hint" class="device-hint" aria-live="polite">
+              กำลังตรวจสอบอุปกรณ์...
+            </p>
+          </div>
+
+          <div class="download-grid">
+            <article class="download-card" data-platform="windows">
+              <div class="card-topline">
+                <span class="platform-icon platform-windows">
+                  <i data-lucide="panels-top-left" aria-hidden="true"></i>
+                </span>
+                <span class="file-type">.EXE</span>
+              </div>
+              <div class="card-copy">
+                <p class="platform-label">WINDOWS</p>
+                <h3>Windows Installer</h3>
+                <p>สำหรับ Windows 10 และ Windows 11</p>
+              </div>
+              <a
+                class="download-button"
+                href="https://github.com/Combine1234/StampBoxLabeller/releases/download/v1.0.7/StampBOX-Setup-1.0.7.exe"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-download="windows"
+              >
+                <i data-lucide="download" aria-hidden="true"></i>
+                <span>ดาวน์โหลดสำหรับ Windows</span>
+              </a>
+            </article>
+
+            <article class="download-card" data-platform="mac-arm">
+              <div class="card-topline">
+                <span class="platform-icon platform-apple">
+                  <i data-lucide="apple" aria-hidden="true"></i>
+                </span>
+                <span class="file-type">.DMG</span>
+              </div>
+              <div class="card-copy">
+                <p class="platform-label">APPLE SILICON</p>
+                <h3>Mac M1–M4</h3>
+                <p>สำหรับ Mac รุ่นใหม่ที่ใช้ชิป Apple</p>
+              </div>
+              <a
+                class="download-button"
+                href="https://github.com/Combine1234/StampBoxLabeller/releases/download/v1.0.7/StampBOX-macOS-arm64-1.0.7.dmg"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-download="mac-arm"
+              >
+                <i data-lucide="download" aria-hidden="true"></i>
+                <span>ดาวน์โหลดสำหรับ Apple Silicon</span>
+              </a>
+            </article>
+
+            <article class="download-card" data-platform="mac-intel">
+              <div class="card-topline">
+                <span class="platform-icon platform-intel">
+                  <i data-lucide="cpu" aria-hidden="true"></i>
+                </span>
+                <span class="file-type">.DMG</span>
+              </div>
+              <div class="card-copy">
+                <p class="platform-label">INTEL MAC</p>
+                <h3>Mac Intel</h3>
+                <p>สำหรับ Mac รุ่นที่ใช้หน่วยประมวลผล Intel</p>
+              </div>
+              <a
+                class="download-button"
+                href="https://github.com/Combine1234/StampBoxLabeller/releases/download/v1.0.7/StampBOX-macOS-x64-1.0.7.dmg"
+                target="_blank"
+                rel="noopener noreferrer"
+                data-download="mac-intel"
+              >
+                <i data-lucide="download" aria-hidden="true"></i>
+                <span>ดาวน์โหลดสำหรับ Intel Mac</span>
+              </a>
+            </article>
+          </div>
+        </section>
+
+        <section class="notes" aria-labelledby="notes-title">
+          <p class="section-index">02 / RELEASE NOTES</p>
+          <div class="notes-layout">
+            <h2 id="notes-title">พร้อมสำหรับงานใบปะหน้า</h2>
+            <ul>
+              <li>
+                <i data-lucide="check" aria-hidden="true"></i>
+                <span>รองรับไฟล์ PDF หลายใบปะหน้า</span>
+              </li>
+              <li>
+                <i data-lucide="check" aria-hidden="true"></i>
+                <span>จับคู่รหัสสินค้าจากรายการที่ตั้งค่าไว้</span>
+              </li>
+              <li>
+                <i data-lucide="check" aria-hidden="true"></i>
+                <span>บันทึกเป็นชื่อไฟล์เดิม ตามด้วย _edited.pdf</span>
+              </li>
+            </ul>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p><span>StampBOX</span> / Desktop Distribution</p>
+        <p>© <span id="year"></span> StampBOX</p>
+      </footer>
+    </div>
+
+    <div class="toast" id="download-toast" role="status" aria-live="polite">
+      <i data-lucide="external-link" aria-hidden="true"></i>
+      <span>กำลังเปิดไฟล์ดาวน์โหลด...</span>
+    </div>
+
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>

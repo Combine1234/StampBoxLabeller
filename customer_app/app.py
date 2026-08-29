@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import sys
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -14,6 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.overlay_writer import create_output_pdf, locate_font
+from src.output_naming import edited_pdf_filename
 from src.pdf_product_extractor import build_rows_from_pdf
 from src.preview import render_page
 from src.product_mapping import DEFAULT_MAPPING_URL
@@ -73,10 +73,7 @@ st.markdown(
 
 
 def _safe_output_name(upload_name: str) -> str:
-    stem = Path(upload_name).stem.strip() or "shopee_labels"
-    cleaned = "".join(char if char.isalnum() or char in (" ", "-", "_") else "_" for char in stem).strip()
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{cleaned}_พร้อมส่งลูกค้า_{timestamp}.pdf"
+    return edited_pdf_filename(upload_name)
 
 
 def _status_counts(report_rows: list[dict]) -> tuple[int, int, int]:

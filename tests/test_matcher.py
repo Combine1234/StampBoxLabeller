@@ -68,8 +68,38 @@ def test_build_overlay_text_prefers_product_code() -> None:
     assert text == "TABLE-MAPLE x1\nIRON x2"
 
 
-def test_build_overlay_text_falls_back_to_variant() -> None:
+def test_build_overlay_text_skips_unmapped_product() -> None:
     text = build_overlay_text([{"variant": "MAPLE", "quantity": "1"}])
 
-    assert text == "MAPLE x1"
+    assert text == ""
 
+
+def test_build_overlay_text_multiplies_bundle_components() -> None:
+    text = build_overlay_text(
+        [{"product_code": "โต๊ะกลาง1+สบาย2 ชมพู", "quantity": 2}]
+    )
+
+    assert text == "ชมพู: โต๊ะกลาง 2 / เก้าอี้สบาย 4"
+
+
+def test_build_overlay_text_does_not_multiply_model_numbers() -> None:
+    text = build_overlay_text(
+        [{"product_code": "ขาคู่36นิ้ว(ขาขาว)", "quantity": 2}]
+    )
+
+    assert text == "ขาคู่36นิ้ว(ขาขาว) x2"
+
+
+def test_build_overlay_text_compacts_same_product_colors() -> None:
+    rows = [
+        {"product_code": "แฟนซี, ฟ้า", "quantity": 1},
+        {"product_code": "แฟนซี, เขียว", "quantity": 1},
+        {"product_code": "แฟนซี, เหลือง", "quantity": 1},
+        {"product_code": "แฟนซี, ม่วง", "quantity": 2},
+        {"product_code": "แฟนซี, ส้ม", "quantity": 1},
+    ]
+
+    assert build_overlay_text(rows) == (
+        "แฟนซี ฟ้า 1 / เขียว 1 / เหลือง 1\n"
+        "ม่วง 2 / ส้ม 1"
+    )

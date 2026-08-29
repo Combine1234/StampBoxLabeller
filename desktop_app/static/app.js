@@ -20,6 +20,11 @@ const savedPath = document.querySelector("#savedPath");
 
 let currentFile = null;
 let pollTimer = null;
+let currentJob = null;
+
+function hasDesktopBridge() {
+  return Boolean(window.pywebview?.api?.save_job_file);
+}
 
 function compactFileName(name) {
   return name
@@ -69,6 +74,7 @@ function setFile(file) {
 
 function resetAll() {
   currentFile = null;
+  currentJob = null;
   pdfInput.value = "";
   selectedFile.textContent = "";
   startButton.disabled = true;
@@ -89,6 +95,7 @@ function hideResult() {
 }
 
 function showResult(job) {
+  currentJob = job;
   emptyState.classList.add("hidden");
   resultReady.classList.remove("hidden");
   writtenCount.textContent = job.written ?? 0;
@@ -102,8 +109,31 @@ function showResult(job) {
   previewSection.classList.remove("hidden");
 }
 
-function triggerDownload(job) {
+async function saveWithDesktop(job, kind = "pdf", prompt = false) {
+  const result = await window.pywebview.api.save_job_file(job.id, kind, prompt);
+  if (result?.ok) {
+    savedPath.textContent = `บันทึกแล้ว: ${result.path}`;
+    return true;
+  }
+  if (!result?.cancelled) {
+    throw new Error(result?.error || "บันทึกไฟล์ไม่สำเร็จ");
+  }
+  return false;
+}
+
+async function triggerDownload(job) {
   if (!job.download_url) return;
+  if (hasDesktopBridge()) {
+    try {
+      const saved = await saveWithDesktop(job, "pdf", false);
+      if (saved) {
+        phaseText.textContent = "เสร็จแล้ว และบันทึก PDF ลงโฟลเดอร์ Downloads/StampBOX";
+      }
+      return;
+    } catch (error) {
+      phaseText.textContent = error.message;
+    }
+  }
   const link = document.createElement("a");
   link.href = job.download_url;
   link.download = job.file_name || "stampbox_ready.pdf";
@@ -144,7 +174,7 @@ async function pollJob(jobId) {
     startButton.innerHTML = '<span class="button-icon" aria-hidden="true">↗</span>ทำอีกครั้ง';
     setStatus("เสร็จแล้ว", "done");
     showResult(job);
-    triggerDownload(job);
+    await triggerDownload(job);
     return;
   }
 
@@ -226,3 +256,25 @@ dropzone.addEventListener("drop", (event) => {
 
 startButton.addEventListener("click", startJob);
 resetButton.addEventListener("click", resetAll);
+
+downloadButton.addEventListener("click", async (event) => {
+  if (!hasDesktopBridge() || !currentJob) return;
+  event.preventDefault();
+  try {
+    await saveWithDesktop(currentJob, "pdf", true);
+  } catch (error) {
+    setStatus("บันทึกไม่สำเร็จ", "error");
+    phaseText.textContent = error.message;
+  }
+});
+
+reportButton.addEventListener("click", async (event) => {
+  if (!hasDesktopBridge() || !currentJob) return;
+  event.preventDefault();
+  try {
+    await saveWithDesktop(currentJob, "report", true);
+  } catch (error) {
+    setStatus("บันทึกไม่สำเร็จ", "error");
+    phaseText.textContent = error.message;
+  }
+});

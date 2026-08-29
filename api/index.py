@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 import tempfile
-from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -15,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.overlay_writer import create_output_pdf, locate_font
+from src.output_naming import edited_pdf_filename
 from src.pdf_product_extractor import build_rows_from_pdf
 from src.product_mapping import DEFAULT_MAPPING_URL
 
@@ -25,10 +25,7 @@ app = Flask(__name__, static_folder=None)
 
 
 def _safe_output_name(filename: str) -> str:
-    stem = Path(filename).stem.strip() or "shopee_labels"
-    cleaned = "".join(char if char.isalnum() or char in (" ", "-", "_") else "_" for char in stem).strip()
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return f"{cleaned or 'shopee_labels'}_stampbox_{timestamp}.pdf"
+    return edited_pdf_filename(filename)
 
 
 def _download_content_disposition(filename: str) -> str:
