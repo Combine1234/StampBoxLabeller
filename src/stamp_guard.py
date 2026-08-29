@@ -8,6 +8,7 @@ import fitz
 
 STAMPBOX_METADATA_MARKER = "stampbox-processed"
 OUTPUT_NAME_MARKER = "พร้อมส่งลูกค้า"
+OUTPUT_NAME_SUFFIX = "_edited"
 
 
 def _compact_marker(value: str) -> str:
@@ -16,8 +17,12 @@ def _compact_marker(value: str) -> str:
 
 
 def looks_like_stampbox_output_name(filename: str) -> bool:
-    compact_name = _compact_marker(Path(filename).stem)
-    return _compact_marker(OUTPUT_NAME_MARKER) in compact_name
+    stem = Path(filename).stem
+    compact_name = _compact_marker(stem)
+    return (
+        _compact_marker(OUTPUT_NAME_MARKER) in compact_name
+        or stem.casefold().strip().endswith(OUTPUT_NAME_SUFFIX)
+    )
 
 
 def mark_stampbox_output(doc: fitz.Document) -> None:

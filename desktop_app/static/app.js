@@ -34,7 +34,8 @@ function compactFileName(name) {
 }
 
 function isProcessedFileName(name) {
-  return compactFileName(name).includes(compactFileName("พร้อมส่งลูกค้า"));
+  const stem = String(name || "").replace(/\.pdf$/i, "").trim().toLowerCase();
+  return compactFileName(name).includes(compactFileName("พร้อมส่งลูกค้า")) || stem.endsWith("_edited");
 }
 
 function setProgress(percent, phase) {

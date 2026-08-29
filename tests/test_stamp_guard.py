@@ -12,6 +12,7 @@ from src.stamp_guard import (
 def test_detects_processed_output_filename() -> None:
     assert looks_like_stampbox_output_name("labels_พร้อมส่งลูกค้า_20260717.pdf")
     assert looks_like_stampbox_output_name("labels_พร_อมส_งล_กค_า_20260717.pdf")
+    assert looks_like_stampbox_output_name("SG Flash - 133 17.7_edited.pdf")
     assert not looks_like_stampbox_output_name("SG Flash - 133 17.7.pdf")
 
 

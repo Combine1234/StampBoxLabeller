@@ -24,6 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.overlay_writer import create_output_pdf, locate_font
+from src.output_naming import edited_pdf_filename, safe_output_stem
 from src.pdf_product_extractor import build_rows_from_pdf
 from src.preview import render_page
 from src.product_mapping import DEFAULT_MAPPING_URL
@@ -63,12 +64,6 @@ def _json_default(value):
     if isinstance(value, Path):
         return str(value)
     raise TypeError(f"Unsupported type: {type(value)!r}")
-
-
-def _safe_output_stem(filename: str) -> str:
-    stem = Path(filename).stem.strip() or "shopee_labels"
-    cleaned = "".join(char if char.isalnum() or char in (" ", "-", "_") else "_" for char in stem).strip()
-    return cleaned or "shopee_labels"
 
 
 def _download_content_disposition(filename: str) -> str:
@@ -157,9 +152,9 @@ def _process_job(job_id: str, input_pdf: Path) -> None:
             raise RuntimeError("ไม่พบฟอนต์ภาษาไทยในเครื่อง")
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        stem = _safe_output_stem(original_name)
+        stem = safe_output_stem(original_name)
         output_dir = input_pdf.parent
-        output_pdf = output_dir / f"{stem}_พร้อมส่งลูกค้า_{timestamp}.pdf"
+        output_pdf = output_dir / edited_pdf_filename(original_name)
         report_xlsx = output_dir / f"{stem}_report_{timestamp}.xlsx"
         preview_png = output_dir / f"{stem}_preview_{timestamp}.png"
 
